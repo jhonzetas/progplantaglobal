@@ -18,7 +18,7 @@ const COLUMNAS_VISIBLES = [
   { key: "ACAB", label: "ACAB", ancho: 3 },
   { key: "COLOR", label: "COLOR", ancho: 4 },
   { key: "DESTINO", label: "DESTINO", ancho: 5 },
-  { key: "NOTAS", label: "MARCA Y NOTAS\nADICIONALES", ancho: 12 },
+  { key: "NOTAS", label: "MARCA Y NOTAS\nADICIONALES", ancho: 15 },
   { key: "LAM", label: "# LAM", ancho: 3 },
   { key: "POR_PRODUCIR", label: "POR\nPRODUCIR", ancho: 5 },
   { key: "PEDIDO_CLIENTE", label: "PEDIDO\nCLIENTE", ancho: 5 },
@@ -31,7 +31,6 @@ const COLUMNAS_VISIBLES = [
   { key: "TERMINA_MAQUINADO", label: "TERMINA\nMAQUINADO", ancho: 5 },
   { key: "FECHA_DESPACHO", label: "FECHA\nDESPACHO", ancho: 3 },
   { key: "RODAJA", label: "RODAJA", ancho: 3 },
-  { key: "MONTAJE_AFUERA", label: "MONTAJE\nAFUERA", ancho: 3 },
 ] as const;
 
 // Todas las columnas menos "Maquina" — esa se pinta aparte, en una sola
@@ -258,10 +257,11 @@ export default function Kiosko() {
                   ? "bg-panel-row"
                   : "bg-panel-row-alt";
               const divisorGrupo = grupo.inicioGrupo && idx !== 0 ? "border-t-4 border-t-amber" : "";
+              const cierreTabla = idx === filas.length - 1 ? "border-b-4 border-b-amber" : "border-b border-panel-row-alt";
               return (
                 <tr
                   key={fila.ID}
-                  className={`border-b border-panel-row-alt align-top ${tinte} ${divisorGrupo}`}
+                  className={`align-top ${tinte} ${divisorGrupo} ${cierreTabla}`}
                 >
                   {grupo.inicioGrupo && (
                     <td
@@ -273,11 +273,14 @@ export default function Kiosko() {
                     </td>
                   )}
                   {COLUMNAS_DATOS.map((c) => (
-                    <td key={c.key} className="p-1 break-words whitespace-pre-line overflow-hidden">
+                    <td
+                      key={c.key}
+                      className="p-1 break-words whitespace-pre-line overflow-hidden border-r border-r-amber/20"
+                    >
                       {formatCelda(c.key, fila[c.key])}
                     </td>
                   ))}
-                  <td className="p-1">
+                  <td className="p-1 border-r-2 border-r-amber">
                     <div className="flex flex-col gap-1">
                       <BotonEstado
                         label="TR"

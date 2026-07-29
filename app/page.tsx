@@ -8,9 +8,10 @@ type Programacion = {
   filas: (string | number | null)[][];
 };
 type FilaObj = Record<string, string | number | null> & { ID: string };
+type Estado = "TR" | "TER" | "MONT";
 
 const COLUMNAS_VISIBLES = [
-  { key: "Maquina", label: "MÁQUINA", ancho: 11 },
+  { key: "Maquina", label: "MÁQUINA", ancho: 4 },
   { key: "OP", label: "OP", ancho: 4 },
   { key: "REF", label: "REF", ancho: 4 },
   { key: "LINEA", label: "LINEA", ancho: 3 },
@@ -19,19 +20,23 @@ const COLUMNAS_VISIBLES = [
   { key: "DESTINO", label: "DESTINO", ancho: 5 },
   { key: "NOTAS", label: "MARCA Y NOTAS\nADICIONALES", ancho: 12 },
   { key: "LAM", label: "# LAM", ancho: 3 },
-  { key: "POR_PRODUCIR", label: "POR\nPRODUCIR", ancho: 4 },
-  { key: "PEDIDO_CLIENTE", label: "PEDIDO\nCLIENTE", ancho: 4 },
-  { key: "TIEMPO_MONTAJE", label: "TIEMPO DE\nMONTAJE", ancho: 4 },
+  { key: "POR_PRODUCIR", label: "POR\nPRODUCIR", ancho: 5 },
+  { key: "PEDIDO_CLIENTE", label: "PEDIDO\nCLIENTE", ancho: 5 },
+  { key: "TIEMPO_MONTAJE", label: "TIEMPO DE\nMONTAJE", ancho: 5 },
   { key: "VELOCIDAD", label: "VELOCIDAD", ancho: 3 },
-  { key: "HORAS_MAQUINADO", label: "HORAS\nMAQUINADO", ancho: 4 },
-  { key: "TIEMPO_MAQUINADO", label: "TIEMPO\nMAQUINADO", ancho: 4 },
+  { key: "HORAS_MAQUINADO", label: "HORAS\nMAQUINADO", ancho: 5 },
+  { key: "TIEMPO_MAQUINADO", label: "TIEMPO\nMAQUINADO", ancho: 5 },
   { key: "FECHA_RODAJA", label: "FECHA\nRODAJA", ancho: 3 },
-  { key: "INICIA_MAQUINADO", label: "INICIA\nMAQUINADO", ancho: 4 },
-  { key: "TERMINA_MAQUINADO", label: "TERMINA\nMAQUINADO", ancho: 4 },
+  { key: "INICIA_MAQUINADO", label: "INICIA\nMAQUINADO", ancho: 5 },
+  { key: "TERMINA_MAQUINADO", label: "TERMINA\nMAQUINADO", ancho: 5 },
   { key: "FECHA_DESPACHO", label: "FECHA\nDESPACHO", ancho: 3 },
   { key: "RODAJA", label: "RODAJA", ancho: 3 },
   { key: "MONTAJE_AFUERA", label: "MONTAJE\nAFUERA", ancho: 3 },
 ] as const;
+
+// Todas las columnas menos "Maquina" — esa se pinta aparte, en una sola
+// celda vertical que abarca (rowSpan) todas las filas de esa máquina.
+const COLUMNAS_DATOS = COLUMNAS_VISIBLES.filter((c) => c.key !== "Maquina");
 
 const COLUMNAS_FECHA = new Set([
   "FECHA_RODAJA",
@@ -40,12 +45,17 @@ const COLUMNAS_FECHA = new Set([
   "FECHA_DESPACHO",
 ]);
 
+// OP es un código identificador (ej. 3055), no una cantidad — no lleva
+// separador de miles.
+const COLUMNAS_SIN_FORMATO_NUMERICO = new Set(["OP"]);
+
 const MESES_ABR = [
   "ENE", "FEB", "MAR", "ABR", "MAY", "JUN",
   "JUL", "AGO", "SEP", "OCT", "NOV", "DIC",
 ];
 
 const POLL_MS = 20000;
+const FORMATO_NUMERO = new Intl.NumberFormat("es-CO");
 
 function formatCelda(key: string, valor: string | number | null): string {
   if (valor === null || valor === undefined || valor === "") return "";
@@ -57,7 +67,24 @@ function formatCelda(key: string, valor: string | number | null): string {
       return `${parseInt(dia, 10)} ${abr}`;
     }
   }
+  if (typeof valor === "number" && !COLUMNAS_SIN_FORMATO_NUMERICO.has(key)) {
+    return FORMATO_NUMERO.format(valor);
+  }
   return String(valor);
+}
+
+// Acorta el nombre de máquina para que quepa en la columna vertical, ej.
+// "HPK - 3  // VARIAS LINEAS" -> "HPK3", "DMK 5 LASER" -> "DMK5 LASER"
+// (conserva "LASER" en las 3 máquinas láser, ya que las distingue de los
+// DMK normales).
+function nombreCortoMaquina(nombre: string): string {
+  const esLaser = /LASER/i.test(nombre);
+  const m = nombre.match(/^([A-ZÑ]+)\s*-?\s*(\d+)/i);
+  if (m) {
+    const base = `${m[1].toUpperCase()}${m[2]}`;
+    return esLaser ? `${base} LASER` : base;
+  }
+  return nombre.split(/\/\/|--/)[0].trim().replace(/\s+/g, " ");
 }
 
 function filasAObjetos(prog: Programacion): FilaObj[] {
@@ -74,6 +101,20 @@ function pickPending(prev: Record<string, string>, pendientes: Set<string>) {
     if (prev[id]) r[id] = prev[id];
   });
   return r;
+}
+
+// Calcula, para cada fila, si es el inicio de un grupo de máquina y cuántas
+// filas consecutivas pertenecen a ese grupo (para el rowSpan).
+function calcularGrupos(filas: FilaObj[]): { inicioGrupo: boolean; tamanoGrupo: number }[] {
+  return filas.map((fila, idx) => {
+    const inicioGrupo = idx === 0 || filas[idx - 1].Maquina !== fila.Maquina;
+    if (!inicioGrupo) return { inicioGrupo: false, tamanoGrupo: 0 };
+    let tamanoGrupo = 1;
+    while (idx + tamanoGrupo < filas.length && filas[idx + tamanoGrupo].Maquina === fila.Maquina) {
+      tamanoGrupo++;
+    }
+    return { inicioGrupo: true, tamanoGrupo };
+  });
 }
 
 export default function Kiosko() {
@@ -122,7 +163,7 @@ export default function Kiosko() {
     return () => document.removeEventListener("contextmenu", preventContextMenu);
   }, []);
 
-  async function marcar(opId: string, valor: "TR" | "TER" | "PAR") {
+  async function marcar(opId: string, valor: Estado) {
     setEstado((prev) => ({ ...prev, [opId]: valor }));
     enviosPendientes.current.add(opId);
     try {
@@ -151,6 +192,7 @@ export default function Kiosko() {
     );
 
   const filas = filasAObjetos(prog);
+  const grupos = calcularGrupos(filas);
 
   return (
     <div className="h-screen w-screen overflow-hidden select-none bg-panel text-ink font-display flex flex-col">
@@ -204,27 +246,33 @@ export default function Kiosko() {
             </tr>
           </thead>
           <tbody>
-            {filas.map((fila) => {
+            {filas.map((fila, idx) => {
               const actual = estado[fila.ID];
+              const grupo = grupos[idx];
+              const tinte =
+                actual === "TR"
+                  ? "bg-pastel-green text-panel"
+                  : actual === "TER"
+                  ? "bg-pastel-red text-panel"
+                  : idx % 2 === 0
+                  ? "bg-panel-row"
+                  : "bg-panel-row-alt";
               return (
-                <tr
-                  key={fila.ID}
-                  className="border-b border-panel-row-alt odd:bg-panel-row even:bg-panel-row-alt align-top"
-                >
-                  {COLUMNAS_VISIBLES.map((c) =>
-                    c.key === "Maquina" ? (
-                      <td
-                        key={c.key}
-                        className="p-1 pl-2 break-words whitespace-pre-line overflow-hidden border-l-2 border-amber font-display font-bold uppercase text-amber"
-                      >
-                        {formatCelda(c.key, fila[c.key])}
-                      </td>
-                    ) : (
-                      <td key={c.key} className="p-1 break-words whitespace-pre-line overflow-hidden">
-                        {formatCelda(c.key, fila[c.key])}
-                      </td>
-                    )
+                <tr key={fila.ID} className={`border-b border-panel-row-alt align-top ${tinte}`}>
+                  {grupo.inicioGrupo && (
+                    <td
+                      rowSpan={grupo.tamanoGrupo}
+                      className="p-1 border-l-2 border-amber bg-panel-alt font-display font-bold uppercase text-amber text-center align-middle"
+                      style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+                    >
+                      {nombreCortoMaquina(fila.Maquina as string)}
+                    </td>
                   )}
+                  {COLUMNAS_DATOS.map((c) => (
+                    <td key={c.key} className="p-1 break-words whitespace-pre-line overflow-hidden">
+                      {formatCelda(c.key, fila[c.key])}
+                    </td>
+                  ))}
                   <td className="p-1">
                     <div className="flex flex-col gap-1">
                       <BotonEstado
@@ -240,10 +288,10 @@ export default function Kiosko() {
                         onClick={() => marcar(fila.ID, "TER")}
                       />
                       <BotonEstado
-                        label="PAR"
-                        activo={actual === "PAR"}
+                        label="MONT"
+                        activo={actual === "MONT"}
                         color="red"
-                        onClick={() => marcar(fila.ID, "PAR")}
+                        onClick={() => marcar(fila.ID, "MONT")}
                       />
                     </div>
                   </td>

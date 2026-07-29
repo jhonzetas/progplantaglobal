@@ -17,6 +17,10 @@ const config: Config = {
           blue: "#3AA6FF",
           red: "#FF4D4D",
         },
+        pastel: {
+          green: "#CFF5DC",
+          red: "#F8D6D6",
+        },
       },
       fontFamily: {
         display: ["var(--font-display)"],

@@ -3,7 +3,7 @@ import { redis } from "@/lib/redis";
 
 export const runtime = "edge";
 const HASH_KEY = "kiosko:estado";
-const ESTADOS_VALIDOS = ["TR", "TER", "PAR"];
+const ESTADOS_VALIDOS = ["TR", "TER", "MONT"];
 
 export async function GET(req: NextRequest) {
   const idsParam = req.nextUrl.searchParams.get("ids");

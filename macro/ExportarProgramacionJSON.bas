@@ -29,6 +29,13 @@ Sub ExportarProgramacionJSON()
     Dim filas As String, json As String
     Dim version As Long
     Dim primeraFila As Boolean
+    Dim hojaActiva As Worksheet
+
+    ' SiguienteVersion crea (la primera vez) una hoja oculta y Excel activa
+    ' brevemente la hoja visible más cercana al ocultarla. Se guarda y
+    ' restaura la hoja activa para que el usuario no termine viendo otra hoja.
+    Set hojaActiva = ActiveSheet
+    Application.ScreenUpdating = False
 
     ' ===== AJUSTA SOLO ESTA LÍNEA SI MUEVES LA CARPETA DEL PROYECTO =====
     rutaProyecto = "C:\progplantaglobal.vercel.app\"
@@ -39,6 +46,8 @@ Sub ExportarProgramacionJSON()
     Set ws = ThisWorkbook.Sheets("Programa_Maq")
 
     version = SiguienteVersion()
+    hojaActiva.Activate
+    Application.ScreenUpdating = True
 
     ' Igual que ActualizarFechas: usa la última fila con contenido en columna J,
     ' no UsedRange (que puede incluir filas con solo formato, sin datos).

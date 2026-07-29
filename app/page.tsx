@@ -257,12 +257,16 @@ export default function Kiosko() {
                   : idx % 2 === 0
                   ? "bg-panel-row"
                   : "bg-panel-row-alt";
+              const divisorGrupo = grupo.inicioGrupo && idx !== 0 ? "border-t-4 border-t-amber" : "";
               return (
-                <tr key={fila.ID} className={`border-b border-panel-row-alt align-top ${tinte}`}>
+                <tr
+                  key={fila.ID}
+                  className={`border-b border-panel-row-alt align-top ${tinte} ${divisorGrupo}`}
+                >
                   {grupo.inicioGrupo && (
                     <td
                       rowSpan={grupo.tamanoGrupo}
-                      className="p-1 border-l-2 border-amber bg-panel-alt font-display font-bold uppercase text-amber text-center align-middle"
+                      className={`p-1 border-l-2 border-amber bg-panel-alt font-display font-bold uppercase text-amber text-center align-middle text-sm tracking-wide ${divisorGrupo}`}
                       style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
                     >
                       {nombreCortoMaquina(fila.Maquina as string)}

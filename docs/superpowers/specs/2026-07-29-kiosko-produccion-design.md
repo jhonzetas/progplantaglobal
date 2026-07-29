@@ -12,9 +12,21 @@ de cada orden de producción (TR / TER / PAR) con un toque, sin login ni diálog
 
 ## 2. Arquitectura
 
+**Corrección importante sobre el diseño original:** el archivo real con macros y cálculos
+es `GESTION DE PRODUCCION PLANTA GLOBAL_1.xlsm`, hoja `Programa_Maq` — no
+`IMPRIMIBLE MAQUINADO.xlsx` (ese es un archivo `.xlsx` plano, sin macros, que el usuario
+arma/actualiza a mano como copia para imprimir). El export al kiosko **no puede depender**
+de que el usuario mantenga esa copia al día a mano — tiene que leer directo de la fuente
+real y viva: `Programa_Maq`, la misma hoja sobre la que ya corre el macro existente
+`ActualizarFechas` (botón que el usuario ya usa a diario para recalcular fechas de
+producción).
+
 ```
-GESTION_PRODUCCION.xlsm
-        │  Macro VBA (botón "Exportar y Publicar")
+GESTION DE PRODUCCION PLANTA GLOBAL_1.xlsm
+   hoja Programa_Maq (fuente real, actualizada a diario)
+        │  Botón existente "Actualizar Fechas" (ActualizarFechas)
+        │  recalcula fechas/horas de producción
+        │  + llamada nueva a ExportarProgramacionJSON al final
         ▼
 public/data/programacion.json   (dentro del repo Next.js)
         │  git add · commit · push (automático desde el macro)
@@ -34,29 +46,39 @@ Tablet Android (modo kiosko)
 - El estado del operario (TR/TER/PAR) vive en Upstash Redis, único hash `kiosko:estado`,
   porque un sitio estático en Vercel no puede escribir su propio contenido.
 - Cualquier push a `main` dispara un redeploy automático en Vercel (ya integrado).
+- Un solo clic en el botón que el usuario ya usa hoy (`ActualizarFechas`) hace todo el flujo:
+  recalcula fechas → exporta JSON → publica a GitHub. No hay paso manual de copiado.
 
 ## 3. Estructura real del Excel (verificada contra el archivo)
 
-Archivo fuente: `C:\Users\GLOBAL\OneDrive\Desktop\PRODUCCION GLOBAL\IMPRIMIBLE MAQUINADO.xlsx`,
-hoja `PROGRAMACION MAQUINADO`.
+Archivo fuente real: `GESTION DE PRODUCCION PLANTA GLOBAL_1.xlsm`, hoja `Programa_Maq`
+(no el imprimible — ver sección 2). Verificado tanto por lectura de datos como leyendo el
+código VBA real de `ActualizarFechas` (Módulo6) con `oletools`, que es quien ya escribe y
+mantiene esta hoja a diario:
 
-Verificado programáticamente (no asumido):
 - Encabezados reales en la **fila 4**, 20 columnas (A:T), texto exacto con espacios sueltos
-  y el salto de línea embebido en `MONTAJE\nAFUERA`.
-- La "máquina" no es una columna: es una fila de texto (columna A, resto vacío, a veces
-  celdas fusionadas A:N) que agrupa las filas de OP debajo, hasta la siguiente fila de texto.
-- Filas de subtotal intercaladas: columna A vacía, columna I (`POR PRODUCIR`) con un número.
-  Se excluyen del export.
-- La OP no es única como llave — se repite entre filas, incluso dentro de la misma máquina.
-- Snapshot actual (jul-29): **18 grupos de máquina**, **80 filas de OP** con datos, de los
-  cuales 4 grupos (`MULTIFORM // LINEAS VARIAS`, `DVK 1 MULTIBARRA`, `DVK 2`,
-  `PROGRAMACION LASER`) no tienen OP asignadas actualmente — no aparecerán en la tabla, lo
-  cual es correcto (no hay nada que mostrar).
-- **Nota de calidad de datos:** al momento de esta revisión, el grupo `DMK 7 LASER`
-  contenía 10 filas duplicadas exactamente (mismo OP+REF+notas) después de su subtotal —
-  error de copiar/pegar en el Excel. El usuario confirmó ignorar ese bloque duplicado.
-  Esto motivó una regla de parsing más estricta (ver sección 7) en vez de una limpieza
-  manual puntual, para que el mismo tipo de error no se cuele en exportaciones futuras.
+  y el salto de línea embebido en `MONTAJE\nAFUERA` (`ActualizarFechas` los escribe él mismo
+  en `S4`/`T4` en cada corrida).
+- La "máquina" no es una columna: es una fila de texto en columna A que agrupa las filas de
+  OP debajo, hasta la siguiente fila de texto. Regla exacta usada por `ActualizarFechas` (y
+  replicada en el macro nuevo): `colA<>"" AND NOT IsNumeric(colA) AND colJ no contiene "DIA"`.
+- Fila de subtotal: `ActualizarFechas` la detecta con `InStr(colJ, "DIA") > 0` (columna J =
+  `PEDIDO CLIENTE`, que en esas filas trae texto como `" DIAS"`). El macro nuevo usa
+  exactamente esta misma regla, no una propia.
+- **Fila productiva con OP vacío es válida:** `ActualizarFechas` NO exige que la columna OP
+  sea numérica para tratar una fila como productiva — cualquier fila con contenido en A:N
+  que no sea encabezado de máquina ni subtotal se procesa. El usuario confirmó el caso real:
+  son materiales cancelados/no maquinados que se reprograman para "recuperar la rodaja" y
+  convertirla en botón para otro cliente, sin un número de OP nuevo asignado todavía. La
+  primera versión de este macro exigía OP numérico y habría descartado esas filas
+  silenciosamente — corregido para igualar la regla de `ActualizarFechas`.
+- La OP no es única como llave cuando sí está presente — se repite entre filas, incluso
+  dentro de la misma máquina.
+- **Nota de calidad de datos (histórica, ya no aplica al snapshot actual):** en una revisión
+  anterior sobre `IMPRIMIBLE MAQUINADO.xlsx` se encontró un bloque de 10 filas duplicadas en
+  `DMK 7 LASER` después de su subtotal — error de copiar/pegar. Motivó la regla de "cortar en
+  el subtotal" (sección 7, punto 2), que sí es una adición nueva del macro sobre la lógica de
+  `ActualizarFechas`.
 
 ## 4. Contrato de datos — `programacion.json`
 
@@ -106,22 +128,37 @@ Hash único `kiosko:estado` → `{ "HPK1_05": "TR", "VANGUARD2_01": "TER", ... }
 
 ## 7. Macro VBA
 
-Exporta las filas 5 en adelante de `PROGRAMACION MAQUINADO`, detecta máquina/subtotal/OP
-con la misma lógica verificada en la sección 3, y escribe `public/data/programacion.json`.
+`Sub ExportarProgramacionJSON` vive en `GESTION DE PRODUCCION PLANTA GLOBAL_1.xlsm` (junto a
+`ActualizarFechas`), lee `ThisWorkbook.Sheets("Programa_Maq")` directamente (fila 5 en
+adelante, `lastRow` calculado igual que `ActualizarFechas`: última fila con contenido en
+columna J, no `UsedRange`), clasifica cada fila con la misma lógica exacta de
+`ActualizarFechas` (sección 3), y escribe `public/data/programacion.json`.
 
-**Cambios respecto al primer borrador del usuario:**
+**Integración con el flujo existente:** se agrega una línea `Call ExportarProgramacionJSON`
+al final de `ActualizarFechas` (Módulo6), justo después de
+`MsgBox "Programa actualizado correctamente.", vbInformation` y antes de `End Sub`. Así el
+botón que el usuario ya usa a diario hace todo en un clic: recalcular fechas → exportar JSON
+→ publicar a GitHub. Esto no lo hace Claude directamente (no se puede editar el proyecto VBA
+de un `.xlsm` de forma programática) — el usuario pega el módulo nuevo y agrega esa línea a
+mano en el editor de VBA.
+
+**Cambios/adiciones respecto al primer borrador del usuario:**
 
 1. El archivo se escribe en **UTF-8 real** usando `ADODB.Stream` (no `Open ... For Output`
    + `Print #`, que usa el codepage ANSI del sistema). El Excel real contiene tildes y "Ñ"
    (ej. "DISEÑO LASER"); sin este cambio esos caracteres se corromperían en el JSON
    consumido por el navegador.
 2. **Límite de máquina en su subtotal:** una vez que el parser encuentra la fila de
-   subtotal de una máquina (columna OP vacía + columna `POR PRODUCIR` con número), deja de
-   aceptar filas de OP para esa máquina — solo vuelve a aceptar filas cuando aparece una
-   nueva fila de texto (nuevo encabezado de máquina). Motivo: se encontró un bloque de 10
-   filas duplicadas después del subtotal de `DMK 7 LASER` (error de copiar/pegar); esta
-   regla evita que ese tipo de error se exporte silenciosamente en el futuro, sin depender
-   de que alguien limpie el Excel a tiempo.
+   subtotal de una máquina (misma regla que `ActualizarFechas`: `InStr(colJ,"DIA")>0`), deja
+   de aceptar filas productivas para esa máquina — solo vuelve a aceptar cuando aparece una
+   nueva fila de encabezado de máquina. Esta es la única regla que el macro nuevo agrega
+   *por encima* de la lógica de `ActualizarFechas` (que no la tiene). Motivo: se encontró un
+   bloque de 10 filas duplicadas después del subtotal de `DMK 7 LASER` en una revisión
+   anterior (error de copiar/pegar); esta regla evita que ese tipo de error se exporte
+   silenciosamente en el futuro.
+3. El contador de `version` se guarda en una hoja oculta (`KioskoConfig`, muy oculta) dentro
+   de `GESTION DE PRODUCCION PLANTA GLOBAL_1.xlsm` — no en `Programa_Maq` ni en el imprimible,
+   para que persista entre ejecuciones sin interferir con el trabajo diario del usuario.
 
 Después de escribir el archivo, el macro ejecuta `git add`, `git commit`, `git push origin
 main` vía `WScript.Shell`. Prerrequisito: credenciales de git ya configuradas en la máquina

@@ -166,11 +166,16 @@ Private Function LimpiarID(texto As String) As String
 End Function
 
 Private Function JVal(c As Range) As String
+    ' OJO: IsNumeric(c.Value) por sí solo NO alcanza — devuelve True para
+    ' texto que "parece" número (ej. REF="0188", LINEA="18"), y exportar eso
+    ' como número JSON rompe el cero a la izquierda y produce JSON inválido
+    ' (0188 no es un número JSON válido). Hay que mirar el tipo real de la
+    ' celda con VarType, no solo si el contenido parece numérico.
     If IsEmpty(c.Value) Then
         JVal = "null"
     ElseIf IsDate(c.Value) Then
         JVal = """" & Format(c.Value, "yyyy-mm-dd hh:mm") & """"
-    ElseIf IsNumeric(c.Value) Then
+    ElseIf IsNumeric(c.Value) And VarType(c.Value) <> vbString Then
         JVal = Replace(CStr(c.Value), ",", ".")
     Else
         JVal = """" & Replace(Replace(CStr(c.Value), "\", "\\"), """", "\""") & """"

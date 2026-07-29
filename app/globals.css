@@ -8,4 +8,9 @@ body {
   -webkit-user-select: none;
   user-select: none;
   overscroll-behavior: none;
+  background-color: #14171a;
+}
+
+body {
+  font-family: var(--font-display), sans-serif;
 }

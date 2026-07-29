@@ -143,57 +143,64 @@ export default function Kiosko() {
     setPantallaCompleta(true);
   }
 
-  if (!prog) return <div className="p-8 text-2xl">Cargando programación...</div>;
+  if (!prog)
+    return (
+      <div className="h-screen w-screen bg-panel text-ink font-display flex items-center justify-center text-2xl tracking-wide">
+        CARGANDO PROGRAMACIÓN…
+      </div>
+    );
 
   const filas = filasAObjetos(prog);
 
   return (
-    <div className="h-screen w-screen overflow-hidden select-none bg-white text-black flex flex-col">
-      <header className="flex items-center justify-between px-4 py-2 bg-gray-100 border-b border-gray-300 shrink-0">
-        <div className="text-xl font-bold">PROGRAMA DE MAQUINADO</div>
-        <div className="text-sm text-gray-600">
-          Última actualización {prog.ultimaActualizacion} · Versión {prog.version}
+    <div className="h-screen w-screen overflow-hidden select-none bg-panel text-ink font-display flex flex-col">
+      <header className="flex items-center justify-between px-4 py-2 bg-panel-alt border-b border-panel-row-alt shrink-0">
+        <div className="text-2xl font-extrabold uppercase tracking-wide">
+          Programa de <span className="text-amber">Maquinado</span>
+        </div>
+        <div className="font-data text-xs text-ink-dim tracking-wide">
+          ACTUALIZADO {prog.ultimaActualizacion} · V{prog.version}
         </div>
         <div className="flex items-center gap-3">
           {!pantallaCompleta && (
             <button
               onClick={iniciarTurno}
-              className="px-3 py-1 rounded bg-blue-600 text-white text-sm font-semibold"
+              className="px-3 py-1 rounded bg-signal-blue/15 border border-signal-blue text-signal-blue text-sm font-bold uppercase tracking-wide"
             >
               Iniciar turno
             </button>
           )}
-          <div className="text-lg font-semibold">
-            {conectado ? "🟢 ACTUALIZADO" : "🔴 SIN CONEXIÓN"}
-          </div>
+          <EstadoConexion conectado={conectado} />
         </div>
       </header>
 
       {!conectado && (
-        <div className="bg-orange-100 text-orange-800 text-center py-1 shrink-0">
-          SIN CONEXIÓN — Mostrando última programación.
+        <div className="bg-signal-red/10 text-signal-red text-center py-1 shrink-0 font-bold uppercase tracking-wide text-sm">
+          Sin conexión — mostrando última programación
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <table className="w-full border-collapse text-[11px] leading-tight table-fixed">
+        <table className="w-full border-collapse text-[11px] leading-tight table-fixed font-data">
           <colgroup>
             {COLUMNAS_VISIBLES.map((c) => (
               <col key={c.key} style={{ width: `${c.ancho}%` }} />
             ))}
             <col style={{ width: "7%" }} />
           </colgroup>
-          <thead className="sticky top-0 bg-gray-200 z-10">
+          <thead className="sticky top-0 bg-panel-alt z-10">
             <tr>
               {COLUMNAS_VISIBLES.map((c) => (
                 <th
                   key={c.key}
-                  className="p-1 text-left border-b border-gray-300 align-bottom whitespace-pre-line overflow-hidden"
+                  className="p-1 text-left border-b border-panel-row-alt align-bottom whitespace-pre-line overflow-hidden font-display font-bold uppercase tracking-wide text-ink-dim text-[11px]"
                 >
                   {c.label}
                 </th>
               ))}
-              <th className="p-1 border-b border-gray-300">ACCIÓN</th>
+              <th className="p-1 border-b border-panel-row-alt font-display font-bold uppercase tracking-wide text-ink-dim text-[11px]">
+                Acción
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -202,31 +209,40 @@ export default function Kiosko() {
               return (
                 <tr
                   key={fila.ID}
-                  className="border-b border-gray-200 odd:bg-white even:bg-gray-50 align-top"
+                  className="border-b border-panel-row-alt odd:bg-panel-row even:bg-panel-row-alt align-top"
                 >
-                  {COLUMNAS_VISIBLES.map((c) => (
-                    <td key={c.key} className="p-1 break-words whitespace-pre-line overflow-hidden">
-                      {formatCelda(c.key, fila[c.key])}
-                    </td>
-                  ))}
+                  {COLUMNAS_VISIBLES.map((c) =>
+                    c.key === "Maquina" ? (
+                      <td
+                        key={c.key}
+                        className="p-1 pl-2 break-words whitespace-pre-line overflow-hidden border-l-2 border-amber font-display font-bold uppercase text-amber"
+                      >
+                        {formatCelda(c.key, fila[c.key])}
+                      </td>
+                    ) : (
+                      <td key={c.key} className="p-1 break-words whitespace-pre-line overflow-hidden">
+                        {formatCelda(c.key, fila[c.key])}
+                      </td>
+                    )
+                  )}
                   <td className="p-1">
                     <div className="flex flex-col gap-1">
                       <BotonEstado
                         label="TR"
                         activo={actual === "TR"}
-                        colorActivo="bg-green-500"
+                        color="green"
                         onClick={() => marcar(fila.ID, "TR")}
                       />
                       <BotonEstado
                         label="TER"
                         activo={actual === "TER"}
-                        colorActivo="bg-blue-500"
+                        color="blue"
                         onClick={() => marcar(fila.ID, "TER")}
                       />
                       <BotonEstado
                         label="PAR"
                         activo={actual === "PAR"}
-                        colorActivo="bg-orange-500"
+                        color="red"
                         onClick={() => marcar(fila.ID, "PAR")}
                       />
                     </div>
@@ -241,22 +257,54 @@ export default function Kiosko() {
   );
 }
 
+function EstadoConexion({ conectado }: { conectado: boolean }) {
+  const color = conectado ? "bg-signal-green" : "bg-signal-red";
+  const glow = conectado
+    ? "shadow-[0_0_8px_2px_rgba(51,226,122,0.7)]"
+    : "shadow-[0_0_8px_2px_rgba(255,77,77,0.7)]";
+  const texto = conectado ? "text-signal-green" : "text-signal-red";
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`w-2.5 h-2.5 rounded-full ${color} ${glow}`} />
+      <span className={`text-sm font-bold uppercase tracking-wide ${texto}`}>
+        {conectado ? "En línea" : "Sin conexión"}
+      </span>
+    </div>
+  );
+}
+
+const COLORES_LAMPARA = {
+  green: {
+    activo: "bg-signal-green text-panel shadow-[0_0_10px_3px_rgba(51,226,122,0.65)]",
+    inactivo: "bg-transparent border border-signal-green/40 text-signal-green/70",
+  },
+  blue: {
+    activo: "bg-signal-blue text-panel shadow-[0_0_10px_3px_rgba(58,166,255,0.65)]",
+    inactivo: "bg-transparent border border-signal-blue/40 text-signal-blue/70",
+  },
+  red: {
+    activo: "bg-signal-red text-panel shadow-[0_0_10px_3px_rgba(255,77,77,0.65)]",
+    inactivo: "bg-transparent border border-signal-red/40 text-signal-red/70",
+  },
+} as const;
+
 function BotonEstado({
   label,
   activo,
-  colorActivo,
+  color,
   onClick,
 }: {
   label: string;
   activo: boolean;
-  colorActivo: string;
+  color: "green" | "blue" | "red";
   onClick: () => void;
 }) {
+  const estilos = COLORES_LAMPARA[color];
   return (
     <button
       onClick={onClick}
-      className={`w-full py-1.5 rounded font-bold text-white text-[11px] leading-none ${
-        activo ? colorActivo : "bg-gray-300 hover:bg-gray-400"
+      className={`w-full py-1.5 rounded font-display font-extrabold text-[11px] leading-none tracking-wide transition-shadow ${
+        activo ? estilos.activo : estilos.inactivo
       }`}
     >
       {label}

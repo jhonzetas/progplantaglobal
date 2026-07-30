@@ -34,27 +34,39 @@ login manual.
 4. Ve a Deployments → el último deploy → menú "..." → **Redeploy** (las variables de
    entorno solo se aplican en el próximo build, no en el actual).
 
-## 4. Verificar en la nube
+## 4. Configurar el login
+
+1. En el proyecto de Vercel, ve a Project Settings → Environment Variables
+   y agrega `AUTH_USER` (el correo) y `AUTH_PASSWORD` (la clave) — son las
+   credenciales compartidas para entrar al kiosko.
+2. Ve a Deployments → el último deploy → menú "..." → **Redeploy** (las
+   variables de entorno solo se aplican en el próximo build, no en el
+   actual).
+3. Al abrir la URL del kiosko por primera vez en cada dispositivo, va a
+   pedir correo y clave — después de iniciar sesión una vez, ese
+   dispositivo queda con sesión iniciada por ~1 año.
+
+## 5. Verificar en la nube
 
 1. Abre `https://<tu-proyecto>.vercel.app` en un navegador de escritorio.
 2. Confirma que la tabla carga con los datos reales.
 3. Toca `TR` en una fila, refresca la página, confirma que el estado se mantuvo
    (esto prueba que Upstash está conectado correctamente).
 
-## 5. Configurar la tablet
+## 6. Configurar la tablet
 
 1. Abre la URL de Vercel en el navegador de la tablet.
 2. Toca "Iniciar turno" para entrar en pantalla completa, o configura el navegador
    kiosko del dispositivo (ej. Fully Kiosk Browser) para abrir esa URL directamente
    en modo kiosko a nivel de sistema.
 
-## 6. Prerrequisito para el macro de Excel
+## 7. Prerrequisito para el macro de Excel
 
 En una terminal, en `C:\progplantaglobal.vercel.app`, confirma que `git push origin main`
 funciona sin pedir usuario/clave. Si pide login, el macro se queda colgado esperando —
 configura Git Credential Manager o SSH antes de usarlo en producción.
 
-## 7. Pendientes de verificación manual (no confirmados automáticamente)
+## 8. Pendientes de verificación manual (no confirmados automáticamente)
 
 - Tap real de TR/TER/PAR en un navegador (la verificación automatizada en este
   entorno quedó bloqueada por un problema del propio tooling de browser automation,

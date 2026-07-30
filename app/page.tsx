@@ -8,7 +8,7 @@ type Programacion = {
   filas: (string | number | null)[][];
 };
 type FilaObj = Record<string, string | number | null> & { ID: string };
-type Estado = "TR" | "TER" | "MONT";
+type Estado = "TRA" | "TER";
 
 const COLUMNAS_VISIBLES = [
   { key: "Maquina", label: "MÁQUINA", ancho: 4 },
@@ -195,14 +195,14 @@ export default function Kiosko() {
 
   return (
     <div className="h-screen w-screen overflow-hidden select-none bg-panel text-ink font-display flex flex-col">
-      <header className="flex items-center justify-between px-4 py-2 bg-panel-alt border-b border-panel-row-alt shrink-0">
-        <div className="text-2xl font-extrabold uppercase tracking-wide">
-          Programa de <span className="text-amber">Maquinado</span>
+      <header className="flex items-center justify-between px-4 py-2 bg-[linear-gradient(90deg,#123A7A_0%,#14171A_75%)] border-b-2 border-amber shrink-0">
+        <div className="text-2xl font-extrabold uppercase tracking-wide border-r border-r-amber/40 pr-4">
+          <span className="text-soft-blue">Programa de</span> <span className="text-amber">Maquinado</span>
         </div>
-        <div className="font-data text-xs text-ink-dim tracking-wide">
+        <div className="font-data text-xs text-soft-blue tracking-wide border-r border-r-amber/40 px-4">
           ACTUALIZADO {prog.ultimaActualizacion} · V{prog.version}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 pl-2">
           {!pantallaCompleta && (
             <button
               onClick={iniciarTurno}
@@ -234,12 +234,12 @@ export default function Kiosko() {
               {COLUMNAS_VISIBLES.map((c) => (
                 <th
                   key={c.key}
-                  className="p-1 text-left border-b border-panel-row-alt align-bottom whitespace-pre-line overflow-hidden font-display font-bold uppercase tracking-wide text-ink-dim text-[11px]"
+                  className="p-1 text-left border-b-2 border-b-amber border-r border-r-amber/20 align-bottom whitespace-pre-line overflow-hidden font-display font-bold uppercase tracking-wide text-ink-dim text-[11px]"
                 >
                   {c.label}
                 </th>
               ))}
-              <th className="p-1 border-b border-panel-row-alt font-display font-bold uppercase tracking-wide text-ink-dim text-[11px]">
+              <th className="p-1 border-b-2 border-b-amber border-r-2 border-r-amber font-display font-bold uppercase tracking-wide text-ink-dim text-[11px]">
                 Acción
               </th>
             </tr>
@@ -249,7 +249,7 @@ export default function Kiosko() {
               const actual = estado[fila.ID];
               const grupo = grupos[idx];
               const tinte =
-                actual === "TR"
+                actual === "TRA"
                   ? "bg-pastel-green text-panel"
                   : actual === "TER"
                   ? "bg-pastel-red text-panel"
@@ -283,22 +283,16 @@ export default function Kiosko() {
                   <td className="p-1 border-r-2 border-r-amber">
                     <div className="flex flex-col gap-1">
                       <BotonEstado
-                        label="TR"
-                        activo={actual === "TR"}
+                        label="TRA"
+                        activo={actual === "TRA"}
                         color="green"
-                        onClick={() => marcar(fila.ID, "TR")}
+                        onClick={() => marcar(fila.ID, "TRA")}
                       />
                       <BotonEstado
                         label="TER"
                         activo={actual === "TER"}
                         color="blue"
                         onClick={() => marcar(fila.ID, "TER")}
-                      />
-                      <BotonEstado
-                        label="MONT"
-                        activo={actual === "MONT"}
-                        color="red"
-                        onClick={() => marcar(fila.ID, "MONT")}
                       />
                     </div>
                   </td>
@@ -337,10 +331,6 @@ const COLORES_LAMPARA = {
     activo: "bg-signal-blue text-panel shadow-[0_0_10px_3px_rgba(58,166,255,0.65)]",
     inactivo: "bg-transparent border border-signal-blue/40 text-signal-blue/70",
   },
-  red: {
-    activo: "bg-signal-red text-panel shadow-[0_0_10px_3px_rgba(255,77,77,0.65)]",
-    inactivo: "bg-transparent border border-signal-red/40 text-signal-red/70",
-  },
 } as const;
 
 function BotonEstado({
@@ -351,7 +341,7 @@ function BotonEstado({
 }: {
   label: string;
   activo: boolean;
-  color: "green" | "blue" | "red";
+  color: "green" | "blue";
   onClick: () => void;
 }) {
   const estilos = COLORES_LAMPARA[color];

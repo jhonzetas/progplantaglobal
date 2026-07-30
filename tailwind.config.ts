@@ -21,6 +21,8 @@ const config: Config = {
           green: "#CFF5DC",
           red: "#F8D6D6",
         },
+        "electric-blue": "#1463FF",
+        "soft-blue": "#8FC6FF",
       },
       fontFamily: {
         display: ["var(--font-display)"],

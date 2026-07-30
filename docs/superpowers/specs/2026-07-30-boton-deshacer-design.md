@@ -12,20 +12,26 @@ al backend/Redis.
 ## Objetivo
 
 Agregar un botón circular de "deshacer" (flecha curva hacia atrás, estilo
-llamada de WhatsApp) en el encabezado, que revierta la **última
-marcación TRA/TER** hecha en esa pantalla — de verdad, sincronizado con
-el backend compartido, no solo visualmente en ese tablet.
+llamada de WhatsApp) en el encabezado, que revierta las **últimas
+marcaciones TRA/TER** hechas en esa pantalla (hasta 5 pasos atrás) — de
+verdad, sincronizado con el backend compartido, no solo visualmente en
+ese tablet.
 
 ## Alcance (decidido en brainstorming)
 
-- Deshace solo la **última marcación**, un solo nivel (no historial
-  largo tipo Ctrl+Z múltiple).
+- Deshace las **últimas 5 marcaciones**, en orden: cada toque retrocede
+  un paso más (como un historial corto de deshacer, no solo la más
+  reciente). Cubre el caso de varios errores seguidos (ej. marcar mal
+  la fila A y luego también la B) sin volverse un historial infinito.
+- Sin límite de tiempo: el botón queda clickeable indefinidamente hasta
+  que se agote el historial (5 pasos) o se recargue la página — no se
+  desactiva solo por dejarlo un rato sin tocar.
 - Un toque, sin confirmación — mismo comportamiento que TRA/TER.
-- Deshabilitado/atenuado cuando no hay ninguna marcación reciente que
-  deshacer en esa sesión de pantalla (se resetea al recargar la
+- Deshabilitado/atenuado cuando el historial está vacío (nada reciente
+  que deshacer en esa sesión de pantalla; se resetea al recargar la
   página, igual que el resto del estado en memoria).
-- Después de deshacer, el botón queda deshabilitado otra vez — deshacer
-  no genera una nueva acción deshacible (no hay "rehacer").
+- Deshacer no genera una nueva entrada en el historial (no hay
+  "rehacer" — no se puede deshacer un deshacer).
 - Visible **siempre durante todo el turno**, no solo antes de
   "Iniciar Turno" (los errores de marcado pasan en cualquier momento del
   turno, y "Iniciar Turno" desaparece una vez se entra a pantalla
@@ -40,28 +46,30 @@ el backend compartido, no solo visualmente en ese tablet.
 
 ### Frontend (`app/page.tsx`)
 
-- Nuevo estado `ultimaAccion: { id: string; valorAnterior: Estado | undefined } | null`
+- Nuevo estado `historial: { id: string; valorAnterior: Estado | undefined }[]`
   (useState, no ref — necesita disparar re-render para habilitar/
-  deshabilitar el botón).
+  deshabilitar el botón). Actúa como pila: se agrega al final, se
+  deshace desde el final. Tamaño máximo 5 — al agregar un elemento que
+  supere el límite, se descarta el más antiguo (`historial.slice(-5)`).
 - `marcar(opId, valor)` captura `estado[opId]` **antes** de aplicar el
-  cambio y lo guarda en `ultimaAccion` (excepto cuando la llamada viene
-  de `deshacer()`, ver abajo).
+  cambio y lo agrega al final de `historial` (excepto cuando la llamada
+  viene de `deshacer()`, ver abajo).
 - Nueva función `limpiarEstado(opId)`: quita la clave `opId` del estado
   local (deja la fila en blanco) y llama `DELETE /api/estado` con
   `{ id: opId }`. Sigue el mismo patrón optimista que `marcar` (aplica
   local primero, revierte silenciosamente si falla la red — el próximo
   poll reconcilia).
 - Nueva función `deshacer()`:
-  - Si `ultimaAccion` es `null`, no hace nada (el botón deshabilitado ya
+  - Si `historial` está vacío, no hace nada (el botón deshabilitado ya
     evita el toque).
-  - Si `valorAnterior` es `undefined` → llama `limpiarEstado(id)`.
-  - Si `valorAnterior` es `"TRA"` o `"TER"` → aplica ese valor sin volver
-    a registrar `ultimaAccion` (para que no se pueda "deshacer el
-    deshacer").
-  - Al terminar, pone `ultimaAccion` en `null`.
+  - Toma el último elemento del historial y lo quita de la pila.
+  - Si su `valorAnterior` es `undefined` → llama `limpiarEstado(id)`.
+  - Si `valorAnterior` es `"TRA"` o `"TER"` → aplica ese valor sin
+    agregar una nueva entrada al historial (para que no se pueda
+    "deshacer el deshacer").
 - Botón nuevo en el header, componente `BotonDeshacer`: círculo con ícono
   SVG de flecha curva de retroceso (dibujado inline, sin dependencias
-  nuevas), `disabled={!ultimaAccion}`, `onClick={deshacer}`.
+  nuevas), `disabled={historial.length === 0}`, `onClick={deshacer}`.
 
 ### Backend (`app/api/estado/route.ts`)
 

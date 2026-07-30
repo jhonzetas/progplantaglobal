@@ -14,3 +14,33 @@ body {
 body {
   font-family: var(--font-display), sans-serif;
 }
+
+/* Barrido de luz continuo sobre el encabezado: una franja azul-gris clara
+   que recorre el fondo de lado a lado sin parar, detrás del título. */
+@keyframes barrido-luz {
+  0% {
+    background-position: -60% 0, 0 0;
+  }
+  100% {
+    background-position: 160% 0, 0 0;
+  }
+}
+
+.encabezado-luz {
+  background-image: linear-gradient(
+      100deg,
+      transparent 20%,
+      rgba(200, 224, 255, 0.45) 50%,
+      transparent 80%
+    ),
+    linear-gradient(90deg, #123a7a 0%, #14171a 75%);
+  background-size: 60% 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat;
+  animation: barrido-luz 4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .encabezado-luz {
+    animation: none;
+  }
+}

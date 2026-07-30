@@ -249,7 +249,7 @@ export default function Kiosko() {
 
   return (
     <div className="h-screen w-screen overflow-hidden select-none bg-panel text-ink font-display flex flex-col">
-      <header className="flex items-center justify-between px-4 py-2 bg-[linear-gradient(90deg,#123A7A_0%,#14171A_75%)] border-b-2 border-amber shrink-0">
+      <header className="encabezado-luz flex items-center justify-between px-4 py-2 border-b-2 border-amber shrink-0">
         <div className="text-2xl font-extrabold uppercase tracking-wide border-r border-r-amber/40 pr-4">
           <span className="text-soft-blue">Programa de</span> <span className="text-amber">Maquinado</span>
         </div>

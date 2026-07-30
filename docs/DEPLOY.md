@@ -62,3 +62,4 @@ configura Git Credential Manager o SSH antes de usarlo en producción.
 - Compilar y ejecutar `macro/ExportarProgramacionJSON.bas` dentro de Excel — no se
   puede ejecutar VBA desde esta terminal. Confirmar que el JSON exportado abre bien
   y que los caracteres con tilde/Ñ no se corrompen.
+test webhook ju., 30 de jul. de 2026  8:28:55

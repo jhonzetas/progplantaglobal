@@ -39,8 +39,25 @@ body {
   animation: barrido-luz 4s linear infinite;
 }
 
+/* Mismo barrido, pero sobre el fondo oscuro de los encabezados de columna
+   de la tabla — usa la misma animación y duración que .encabezado-luz para
+   que se vea como una sola luz continua bajando desde el header. */
+.encabezado-tabla-luz {
+  background-image: linear-gradient(
+      100deg,
+      transparent 20%,
+      rgba(200, 224, 255, 0.4) 50%,
+      transparent 80%
+    ),
+    linear-gradient(90deg, #1b1f23 0%, #1b1f23 100%);
+  background-size: 60% 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat;
+  animation: barrido-luz 4s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .encabezado-luz {
+  .encabezado-luz,
+  .encabezado-tabla-luz {
     animation: none;
   }
 }

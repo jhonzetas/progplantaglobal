@@ -283,7 +283,7 @@ export default function Kiosko() {
             ))}
             <col style={{ width: "7%" }} />
           </colgroup>
-          <thead className="sticky top-0 bg-panel-alt z-10">
+          <thead className="encabezado-tabla-luz sticky top-0 z-10">
             <tr>
               {COLUMNAS_VISIBLES.map((c) => (
                 <th

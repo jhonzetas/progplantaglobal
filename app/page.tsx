@@ -94,12 +94,21 @@ function filasAObjetos(prog: Programacion): FilaObj[] {
   });
 }
 
-function pickPending(prev: Record<string, string>, pendientes: Set<string>) {
-  const r: Record<string, string> = {};
+// Combina lo recién sondeado del servidor con lo que hay pendiente de
+// confirmar localmente (marcaciones o limpiezas con una petición aún en
+// vuelo), para que un poll que llegue en medio de esa ventana no
+// resucite momentáneamente un valor que el operario ya cambió.
+function combinarConPendientes(
+  nuevoEstado: Record<string, string>,
+  prev: Record<string, string>,
+  pendientes: Set<string>
+): Record<string, string> {
+  const combinado = { ...nuevoEstado };
   pendientes.forEach((id) => {
-    if (prev[id]) r[id] = prev[id];
+    if (prev[id]) combinado[id] = prev[id];
+    else delete combinado[id];
   });
-  return r;
+  return combinado;
 }
 
 // Guarda la última programación/estado conocidos en el dispositivo. Si la
@@ -151,6 +160,12 @@ export default function Kiosko() {
   const [conectado, setConectado] = useState(true);
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
   const enviosPendientes = useRef<Set<string>>(new Set());
+  // Pila de las últimas marcaciones (máx. 5) para poder deshacerlas.
+  // `valorAnterior` es undefined cuando la fila no tenía ninguna marca
+  // antes del cambio.
+  const [historial, setHistorial] = useState<
+    { id: string; valorAnterior: Estado | undefined }[]
+  >([]);
   // Refleja `estado` de forma síncrona (sin esperar el render de React) para
   // poder guardarlo en localStorage justo después de actualizarlo.
   const estadoRef = useRef<Record<string, string>>({});
@@ -183,10 +198,9 @@ export default function Kiosko() {
       });
       if (rEstado.ok) {
         const nuevoEstado = await rEstado.json();
-        actualizarEstado((prev) => ({
-          ...nuevoEstado,
-          ...pickPending(prev, enviosPendientes.current),
-        }));
+        actualizarEstado((prev) =>
+          combinarConPendientes(nuevoEstado, prev, enviosPendientes.current)
+        );
       }
       guardarCacheLocal(data, estadoRef.current);
       setConectado(true);
@@ -216,7 +230,11 @@ export default function Kiosko() {
     return () => document.removeEventListener("contextmenu", preventContextMenu);
   }, []);
 
-  async function marcar(opId: string, valor: Estado) {
+  async function marcar(opId: string, valor: Estado, registrarHistorial = true) {
+    if (registrarHistorial) {
+      const valorAnterior = estadoRef.current[opId] as Estado | undefined;
+      setHistorial((prev) => [...prev, { id: opId, valorAnterior }].slice(-5));
+    }
     actualizarEstado((prev) => ({ ...prev, [opId]: valor }));
     enviosPendientes.current.add(opId);
     try {
@@ -229,6 +247,40 @@ export default function Kiosko() {
       // El estado ya quedó marcado localmente; el próximo poll exitoso lo reconciliará.
     } finally {
       enviosPendientes.current.delete(opId);
+    }
+  }
+
+  async function limpiarEstado(opId: string) {
+    actualizarEstado((prev) => {
+      const siguiente = { ...prev };
+      delete siguiente[opId];
+      return siguiente;
+    });
+    enviosPendientes.current.add(opId);
+    try {
+      await fetch("/api/estado", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: opId }),
+      });
+    } catch {
+      // El estado ya quedó limpiado localmente; el próximo poll exitoso lo reconciliará.
+    } finally {
+      enviosPendientes.current.delete(opId);
+    }
+  }
+
+  function deshacer() {
+    if (historial.length === 0) return;
+    const ultimo = historial[historial.length - 1];
+    // El pop se hace aparte de las llamadas con efectos (limpiarEstado/marcar):
+    // React 18 en modo estricto puede invocar dos veces el actualizador de
+    // setState, y no queremos disparar la petición de red dos veces.
+    setHistorial((prev) => prev.slice(0, -1));
+    if (ultimo.valorAnterior === undefined) {
+      limpiarEstado(ultimo.id);
+    } else {
+      marcar(ultimo.id, ultimo.valorAnterior, false);
     }
   }
 
@@ -257,6 +309,7 @@ export default function Kiosko() {
           ACTUALIZADO {prog.ultimaActualizacion} · V{prog.version}
         </div>
         <div className="flex items-center gap-3 pl-2">
+          <BotonDeshacer disabled={historial.length === 0} onClick={deshacer} />
           {!pantallaCompleta && (
             <button
               onClick={iniciarTurno}
@@ -373,6 +426,40 @@ function EstadoConexion({ conectado }: { conectado: boolean }) {
         {conectado ? "En línea" : "Sin conexión"}
       </span>
     </div>
+  );
+}
+
+function BotonDeshacer({
+  disabled,
+  onClick,
+}: {
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label="Deshacer última marcación"
+      className={`w-9 h-9 rounded-full flex items-center justify-center border transition-opacity ${
+        disabled
+          ? "opacity-40 cursor-not-allowed border-amber/40 text-amber/40"
+          : "border-amber text-amber bg-amber/15"
+      }`}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="w-5 h-5"
+      >
+        <polyline points="9 14 4 9 9 4" />
+        <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+      </svg>
+    </button>
   );
 }
 

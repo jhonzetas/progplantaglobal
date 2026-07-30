@@ -102,6 +102,35 @@ function pickPending(prev: Record<string, string>, pendientes: Set<string>) {
   return r;
 }
 
+// Guarda la última programación/estado conocidos en el dispositivo. Si la
+// tablet se reinicia o recarga la página sin internet en ese momento, esto
+// permite mostrar la última copia en vez de quedarse cargando para siempre.
+const CACHE_KEY_PROG = "kiosko_cache_programacion";
+const CACHE_KEY_ESTADO = "kiosko_cache_estado";
+
+function guardarCacheLocal(prog: Programacion, estado: Record<string, string>) {
+  try {
+    localStorage.setItem(CACHE_KEY_PROG, JSON.stringify(prog));
+    localStorage.setItem(CACHE_KEY_ESTADO, JSON.stringify(estado));
+  } catch {
+    // Almacenamiento no disponible (modo privado, cuota llena, etc.) — sin
+    // caché local no hay nada más que hacer, la app sigue funcionando en línea.
+  }
+}
+
+function leerCacheLocal(): { prog: Programacion | null; estado: Record<string, string> } {
+  try {
+    const progGuardado = localStorage.getItem(CACHE_KEY_PROG);
+    const estadoGuardado = localStorage.getItem(CACHE_KEY_ESTADO);
+    return {
+      prog: progGuardado ? (JSON.parse(progGuardado) as Programacion) : null,
+      estado: estadoGuardado ? JSON.parse(estadoGuardado) : {},
+    };
+  } catch {
+    return { prog: null, estado: {} };
+  }
+}
+
 // Calcula, para cada fila, si es el inicio de un grupo de máquina y cuántas
 // filas consecutivas pertenecen a ese grupo (para el rowSpan).
 function calcularGrupos(filas: FilaObj[]): { inicioGrupo: boolean; tamanoGrupo: number }[] {
@@ -122,6 +151,21 @@ export default function Kiosko() {
   const [conectado, setConectado] = useState(true);
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
   const enviosPendientes = useRef<Set<string>>(new Set());
+  // Refleja `estado` de forma síncrona (sin esperar el render de React) para
+  // poder guardarlo en localStorage justo después de actualizarlo.
+  const estadoRef = useRef<Record<string, string>>({});
+  // Solo el primer intento de carga, si falla, recurre a la copia local
+  // guardada en el dispositivo — después de eso ya hay algo en memoria y el
+  // comportamiento normal (mantener lo último visto) es suficiente.
+  const primerIntento = useRef(true);
+
+  function actualizarEstado(actualizador: (prev: Record<string, string>) => Record<string, string>) {
+    setEstado((prev) => {
+      const siguiente = actualizador(prev);
+      estadoRef.current = siguiente;
+      return siguiente;
+    });
+  }
 
   const poll = useCallback(async () => {
     try {
@@ -139,14 +183,24 @@ export default function Kiosko() {
       });
       if (rEstado.ok) {
         const nuevoEstado = await rEstado.json();
-        setEstado((prev) => ({
+        actualizarEstado((prev) => ({
           ...nuevoEstado,
           ...pickPending(prev, enviosPendientes.current),
         }));
       }
+      guardarCacheLocal(data, estadoRef.current);
       setConectado(true);
+      primerIntento.current = false;
     } catch {
       setConectado(false);
+      if (primerIntento.current) {
+        const cache = leerCacheLocal();
+        if (cache.prog) {
+          setProg(cache.prog);
+          actualizarEstado(() => cache.estado);
+        }
+        primerIntento.current = false;
+      }
     }
   }, []);
 
@@ -163,7 +217,7 @@ export default function Kiosko() {
   }, []);
 
   async function marcar(opId: string, valor: Estado) {
-    setEstado((prev) => ({ ...prev, [opId]: valor }));
+    actualizarEstado((prev) => ({ ...prev, [opId]: valor }));
     enviosPendientes.current.add(opId);
     try {
       await fetch("/api/estado", {

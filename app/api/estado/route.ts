@@ -29,3 +29,13 @@ export async function POST(req: NextRequest) {
   await redis.hset(HASH_KEY, { [id]: valor });
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(req: NextRequest) {
+  const body = (await req.json()) as { id?: string };
+  const { id } = body;
+  if (!id) {
+    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+  }
+  await redis.hdel(HASH_KEY, id);
+  return NextResponse.json({ ok: true });
+}

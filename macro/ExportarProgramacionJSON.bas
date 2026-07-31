@@ -19,8 +19,21 @@ Option Explicit
 ' ActualizarFechas (justo después del MsgBox "Programa actualizado
 ' correctamente.", antes de End Sub), para que un solo clic en el botón que
 ' ya usas actualice fechas Y publique el JSON del kiosko.
+'
+' ID DE FILA (columna AA, COL_ID_UNICO): el ID que identifica cada fila para
+' el kiosko (y que guarda si quedó marcada TRA/TER) se escribe en la columna
+' AA de Programa_Maq la primera vez que el macro ve esa fila, y de ahí en
+' adelante se reutiliza el mismo valor siempre. Es DELIBERADO que NO se
+' recalcule por posición (como "DMK6LASER_01", "DMK6LASER_02"...) — esa era
+' la versión anterior, y tenía un bug real: al terminar y quitar un trabajo
+' de la hoja, todas las filas de abajo se recorrían una posición y heredaban
+' el ID (y la marca TRA/TER) de un trabajo distinto que ya no existía. Con
+' el ID pegado a la fila en la columna AA, reordenar o quitar otras filas ya
+' no afecta la identidad de esta.
 
 Sub ExportarProgramacionJSON()
+    Const COL_ID_UNICO As Integer = 27 ' columna AA
+
     Dim ws As Worksheet
     Dim rutaProyecto As String, rutaJSON As String
     Dim lastRow As Long, r As Long
@@ -70,6 +83,10 @@ Sub ExportarProgramacionJSON()
 
     filas = "": maquinaActual = "SIN_MAQUINA": contador = 0: cerrada = False: primeraFila = True
 
+    ' Se apaga aquí (no solo durante SiguienteVersion) porque este bucle ahora
+    ' también escribe en la hoja (columna AA, ID persistente por fila).
+    Application.ScreenUpdating = False
+
     For r = 5 To lastRow
         Dim colA As String, colJ As String
         Dim hayContenido As Boolean
@@ -104,8 +121,16 @@ Sub ExportarProgramacionJSON()
             ' fila productiva (puede tener OP vacío si hay datos en otras columnas,
             ' igual que en ActualizarFechas)
             contador = contador + 1
-            Dim idFila As String
-            idFila = LimpiarID(maquinaActual) & "_" & Format(contador, "00")
+            Dim idFila As String, celdaID As Range
+            Set celdaID = ws.Cells(r, COL_ID_UNICO)
+            If Trim(CStr(celdaID.Value)) = "" Then
+                ' Primera vez que se ve esta fila -> se le asigna un ID nuevo
+                ' y se deja escrito en la hoja para siempre (no se regenera).
+                idFila = LimpiarID(maquinaActual) & "_" & Format(SiguienteIDUnico(), "00000")
+                celdaID.Value = idFila
+            Else
+                idFila = Trim(CStr(celdaID.Value))
+            End If
 
             If Not primeraFila Then filas = filas & ","
             primeraFila = False
@@ -123,6 +148,9 @@ Sub ExportarProgramacionJSON()
         ' máquina de por medio -> se ignora (protección contra duplicados).
         End If
     Next r
+
+    Application.ScreenUpdating = True
+    ThisWorkbook.Save ' persiste los IDs nuevos escritos en la columna AA
 
     json = "{""version"":" & version & ",""ultimaActualizacion"":""" & Format(Now, "yyyy-mm-dd hh:mm:ss") & _
         """,""columnas"":[" & colJSON & "],""filas"":[" & filas & "]}"
@@ -155,6 +183,31 @@ Private Function SiguienteVersion() As Long
 
     wsConfig.Range("A1").Value = wsConfig.Range("A1").Value + 1
     SiguienteVersion = wsConfig.Range("A1").Value
+End Function
+
+' Contador de IDs únicos de fila, persistido en la misma hoja oculta (celda
+' B1, separado del contador de versión en A1). Cada fila productiva nueva
+' consume un número de aquí una sola vez, la primera vez que se exporta esa
+' fila — después queda escrito en su celda de la columna AA y no se vuelve a
+' pedir un número nuevo para esa fila.
+Private Function SiguienteIDUnico() As Long
+    Const NOMBRE_HOJA As String = "KioskoConfig"
+    Dim wsConfig As Worksheet
+
+    On Error Resume Next
+    Set wsConfig = ThisWorkbook.Sheets(NOMBRE_HOJA)
+    On Error GoTo 0
+
+    If wsConfig Is Nothing Then
+        Set wsConfig = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+        wsConfig.Name = NOMBRE_HOJA
+        wsConfig.Visible = xlSheetVeryHidden
+        wsConfig.Range("A1").Value = 0
+    End If
+
+    If Trim(CStr(wsConfig.Range("B1").Value)) = "" Then wsConfig.Range("B1").Value = 0
+    wsConfig.Range("B1").Value = wsConfig.Range("B1").Value + 1
+    SiguienteIDUnico = wsConfig.Range("B1").Value
 End Function
 
 Private Function LimpiarID(texto As String) As String

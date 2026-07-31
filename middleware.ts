@@ -15,10 +15,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const usuario = process.env.AUTH_USER;
   const password = process.env.AUTH_PASSWORD;
   const cookie = req.cookies.get("kiosko_auth")?.value;
 
-  if (!password || cookie !== password) {
+  if (!usuario || !password || cookie !== password) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }

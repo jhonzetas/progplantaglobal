@@ -384,7 +384,13 @@ export default function Kiosko() {
                       key={c.key}
                       className="p-1 break-words whitespace-pre-line overflow-hidden border-r border-r-amber/20"
                     >
-                      {formatCelda(c.key, fila[c.key])}
+                      {c.key === "RODAJA" && fila[c.key] ? (
+                        <span className="inline-block rounded bg-cyan-400 px-1.5 py-0.5 font-bold text-panel">
+                          {formatCelda(c.key, fila[c.key])}
+                        </span>
+                      ) : (
+                        formatCelda(c.key, fila[c.key])
+                      )}
                     </td>
                   ))}
                   <td className="p-1 border-r-2 border-r-amber">
@@ -443,8 +449,8 @@ function BotonDeshacer({
       aria-label="Deshacer última marcación"
       className={`w-9 h-9 rounded-full flex items-center justify-center border transition-opacity ${
         disabled
-          ? "opacity-40 cursor-not-allowed border-amber/40 text-amber/40"
-          : "border-amber text-amber bg-amber/15"
+          ? "opacity-40 cursor-not-allowed border-signal-green/40 text-signal-green/40"
+          : "border-signal-green bg-signal-green text-panel shadow-[0_0_10px_3px_rgba(51,226,122,0.65)]"
       }`}
     >
       <svg

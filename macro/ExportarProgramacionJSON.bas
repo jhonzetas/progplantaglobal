@@ -1,35 +1,10 @@
 Option Explicit
 
 ' Vive en GESTION DE PRODUCCION PLANTA GLOBAL_1.xlsm, junto a ActualizarFechas.
-' Lee directo de la hoja "Programa_Maq" (la fuente real que actualizas a diario),
-' NO del archivo IMPRIMIBLE MAQUINADO.xlsx — así no depende de un paso manual
-' de copiado aparte.
-'
-' La clasificación de fila (vacía / encabezado de máquina / subtotal / fila
-' productiva) replica EXACTAMENTE la de ActualizarFechas (Módulo6), incluyendo
-' que una fila productiva puede tener la columna OP vacía si hay datos en otras
-' columnas — ActualizarFechas ya trata esas filas como válidas y este macro
-' debía hacer lo mismo. La única regla nueva que agrega este macro (no está en
-' ActualizarFechas) es el corte en el subtotal: una vez visto el subtotal de una
-' máquina, no vuelve a aceptar filas hasta el siguiente encabezado de máquina —
-' protección contra bloques duplicados pegados por error (así se detectó y
-' limpió el caso de DMK 7 LASER).
-'
-' INTEGRACIÓN: agrega una línea "Call ExportarProgramacionJSON" al final de
-' ActualizarFechas (justo después del MsgBox "Programa actualizado
-' correctamente.", antes de End Sub), para que un solo clic en el botón que
-' ya usas actualice fechas Y publique el JSON del kiosko.
-'
-' ID DE FILA (columna AA, COL_ID_UNICO): el ID que identifica cada fila para
-' el kiosko (y que guarda si quedó marcada TRA/TER) se escribe en la columna
-' AA de Programa_Maq la primera vez que el macro ve esa fila, y de ahí en
-' adelante se reutiliza el mismo valor siempre. Es DELIBERADO que NO se
-' recalcule por posición (como "DMK6LASER_01", "DMK6LASER_02"...) — esa era
-' la versión anterior, y tenía un bug real: al terminar y quitar un trabajo
-' de la hoja, todas las filas de abajo se recorrían una posición y heredaban
-' el ID (y la marca TRA/TER) de un trabajo distinto que ya no existía. Con
-' el ID pegado a la fila en la columna AA, reordenar o quitar otras filas ya
-' no afecta la identidad de esta.
+' Lee de la hoja "Programa_Maq". Para quitar o agregar un trabajo, borra/inserta
+' la FILA COMPLETA (clic derecho sobre el número de fila) — si en cambio borras
+' el contenido de una fila y escribes un trabajo nuevo encima, la columna AA no
+' se limpia sola y el ID (con su marca TRA/TER) queda pegado al trabajo nuevo.
 
 Sub ExportarProgramacionJSON()
     Const COL_ID_UNICO As Integer = 27 ' columna AA
@@ -44,9 +19,6 @@ Sub ExportarProgramacionJSON()
     Dim primeraFila As Boolean
     Dim hojaActiva As Worksheet
 
-    ' SiguienteVersion crea (la primera vez) una hoja oculta y Excel activa
-    ' brevemente la hoja visible más cercana al ocultarla. Se guarda y
-    ' restaura la hoja activa para que el usuario no termine viendo otra hoja.
     Set hojaActiva = ActiveSheet
     Application.ScreenUpdating = False
 
@@ -62,8 +34,6 @@ Sub ExportarProgramacionJSON()
     hojaActiva.Activate
     Application.ScreenUpdating = True
 
-    ' Igual que ActualizarFechas: usa la última fila con contenido en columna J,
-    ' no UsedRange (que puede incluir filas con solo formato, sin datos).
     lastRow = ws.Cells(ws.Rows.Count, "J").End(xlUp).Row
 
     Dim columnas(1 To 22) As String
@@ -82,9 +52,6 @@ Sub ExportarProgramacionJSON()
     Next i
 
     filas = "": maquinaActual = "SIN_MAQUINA": contador = 0: cerrada = False: primeraFila = True
-
-    ' Se apaga aquí (no solo durante SiguienteVersion) porque este bucle ahora
-    ' también escribe en la hoja (columna AA, ID persistente por fila).
     Application.ScreenUpdating = False
 
     For r = 5 To lastRow
@@ -96,7 +63,7 @@ Sub ExportarProgramacionJSON()
         colJ = UCase(Trim(CStr(ws.Cells(r, "J").Value)))
 
         hayContenido = False
-        For cc = 1 To 14 ' A:N, igual que ActualizarFechas
+        For cc = 1 To 14
             If Trim(CStr(ws.Cells(r, cc).Value)) <> "" Then
                 hayContenido = True
                 Exit For
@@ -107,25 +74,18 @@ Sub ExportarProgramacionJSON()
             ' fila vacía -> ignorar
 
         ElseIf colA <> "" And Not IsNumeric(colA) And InStr(colJ, "DIA") = 0 Then
-            ' encabezado de máquina
             maquinaActual = colA
             contador = 0
             cerrada = False
 
         ElseIf InStr(colJ, "DIA") > 0 Then
-            ' subtotal -> cierra la máquina actual; no vuelve a aceptar filas
-            ' hasta el siguiente encabezado de máquina
-            cerrada = True
+            cerrada = True ' subtotal -> no acepta más filas hasta el próximo encabezado
 
         ElseIf Not cerrada Then
-            ' fila productiva (puede tener OP vacío si hay datos en otras columnas,
-            ' igual que en ActualizarFechas)
             contador = contador + 1
             Dim idFila As String, celdaID As Range
             Set celdaID = ws.Cells(r, COL_ID_UNICO)
             If Trim(CStr(celdaID.Value)) = "" Then
-                ' Primera vez que se ve esta fila -> se le asigna un ID nuevo
-                ' y se deja escrito en la hoja para siempre (no se regenera).
                 idFila = LimpiarID(maquinaActual) & "_" & Format(SiguienteIDUnico(), "00000")
                 celdaID.Value = idFila
             Else
@@ -143,14 +103,11 @@ Sub ExportarProgramacionJSON()
                 JVal(ws.Cells(r, 13)) & "," & JVal(ws.Cells(r, 14)) & "," & JVal(ws.Cells(r, 15)) & "," & _
                 JVal(ws.Cells(r, 16)) & "," & JVal(ws.Cells(r, 17)) & "," & JVal(ws.Cells(r, 18)) & "," & _
                 JVal(ws.Cells(r, 19)) & "," & JVal(ws.Cells(r, 20)) & "]"
-
-        ' Else: fila productiva posterior a un subtotal sin nuevo encabezado de
-        ' máquina de por medio -> se ignora (protección contra duplicados).
         End If
     Next r
 
     Application.ScreenUpdating = True
-    ThisWorkbook.Save ' persiste los IDs nuevos escritos en la columna AA
+    ThisWorkbook.Save
 
     Dim observaciones As String
     observaciones = Trim(CStr(ws.Cells(3, "A").Value))
@@ -167,8 +124,6 @@ Sub ExportarProgramacionJSON()
         vbInformation, "Kiosko Producción"
 End Sub
 
-' Contador de versión persistido en una hoja oculta de ESTE libro, para que
-' sobreviva entre exportaciones sin tocar Programa_Maq.
 Private Function SiguienteVersion() As Long
     Const NOMBRE_HOJA As String = "KioskoConfig"
     Dim wsConfig As Worksheet
@@ -188,11 +143,6 @@ Private Function SiguienteVersion() As Long
     SiguienteVersion = wsConfig.Range("A1").Value
 End Function
 
-' Contador de IDs únicos de fila, persistido en la misma hoja oculta (celda
-' B1, separado del contador de versión en A1). Cada fila productiva nueva
-' consume un número de aquí una sola vez, la primera vez que se exporta esa
-' fila — después queda escrito en su celda de la columna AA y no se vuelve a
-' pedir un número nuevo para esa fila.
 Private Function SiguienteIDUnico() As Long
     Const NOMBRE_HOJA As String = "KioskoConfig"
     Dim wsConfig As Worksheet
@@ -222,11 +172,9 @@ Private Function LimpiarID(texto As String) As String
 End Function
 
 Private Function JVal(c As Range) As String
-    ' OJO: IsNumeric(c.Value) por sí solo NO alcanza — devuelve True para
-    ' texto que "parece" número (ej. REF="0188", LINEA="18"), y exportar eso
-    ' como número JSON rompe el cero a la izquierda y produce JSON inválido
-    ' (0188 no es un número JSON válido). Hay que mirar el tipo real de la
-    ' celda con VarType, no solo si el contenido parece numérico.
+    ' IsNumeric(c.Value) solo no alcanza: da True para texto tipo REF="0188",
+    ' y exportarlo como número rompe el cero a la izquierda. Por eso se mira
+    ' VarType, no solo si el contenido parece número.
     If IsEmpty(c.Value) Then
         JVal = "null"
     ElseIf IsDate(c.Value) Then
@@ -251,21 +199,20 @@ Private Function EscaparJSON(texto As String) As String
     EscaparJSON = t
 End Function
 
-' Escribe contenido UTF-8 sin BOM. ADODB.Stream con Charset="utf-8" añade un
-' BOM de 3 bytes al guardar; se descarta releyendo en modo binario desde la
-' posición 3 antes de guardar el archivo final.
 Private Sub GuardarUTF8SinBOM(ruta As String, contenido As String)
+    ' ADODB.Stream con Charset="utf-8" añade un BOM de 3 bytes; se descarta
+    ' releyendo en binario desde la posición 3.
     Dim txtStream As Object, binStream As Object
     Dim bytes() As Byte
 
     Set txtStream = CreateObject("ADODB.Stream")
-    txtStream.Type = 2 ' texto
+    txtStream.Type = 2
     txtStream.Charset = "utf-8"
     txtStream.Open
     txtStream.WriteText contenido
     txtStream.Position = 0
-    txtStream.Type = 1 ' binario
-    txtStream.Position = 3 ' saltar BOM
+    txtStream.Type = 1
+    txtStream.Position = 3
     bytes = txtStream.Read
     txtStream.Close
 
@@ -273,7 +220,7 @@ Private Sub GuardarUTF8SinBOM(ruta As String, contenido As String)
     binStream.Type = 1
     binStream.Open
     binStream.Write bytes
-    binStream.SaveToFile ruta, 2 ' adSaveCreateOverWrite
+    binStream.SaveToFile ruta, 2
     binStream.Close
 End Sub
 

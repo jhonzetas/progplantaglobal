@@ -167,6 +167,12 @@ export default function Kiosko() {
   const [historial, setHistorial] = useState<
     { id: string; valorAnterior: Estado | undefined }[]
   >([]);
+  const [bitacora, setBitacora] = useState<
+    { id: string; texto: string; autor: string | null; fecha: string }[]
+  >([]);
+  const [notaTexto, setNotaTexto] = useState("");
+  const [notaAutor, setNotaAutor] = useState("");
+  const [enviandoNota, setEnviandoNota] = useState(false);
   // Refleja `estado` de forma síncrona (sin esperar el render de React) para
   // poder guardarlo en localStorage justo después de actualizarlo.
   const estadoRef = useRef<Record<string, string>>({});
@@ -203,6 +209,12 @@ export default function Kiosko() {
           combinarConPendientes(nuevoEstado, prev, enviosPendientes.current)
         );
       }
+
+      const rBitacora = await fetch("/api/bitacora", { cache: "no-store" });
+      if (rBitacora.ok) {
+        setBitacora(await rBitacora.json());
+      }
+
       guardarCacheLocal(data, estadoRef.current);
       setConectado(true);
       primerIntento.current = false;
@@ -268,6 +280,31 @@ export default function Kiosko() {
       // El estado ya quedó limpiado localmente; el próximo poll exitoso lo reconciliará.
     } finally {
       enviosPendientes.current.delete(opId);
+    }
+  }
+
+  async function agregarNota() {
+    const texto = notaTexto.trim();
+    if (!texto) return;
+    setEnviandoNota(true);
+    try {
+      const r = await fetch("/api/bitacora", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          texto,
+          autor: notaAutor.trim() || undefined,
+        }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setBitacora((prev) => [data.entrada, ...prev]);
+        setNotaTexto("");
+      }
+    } catch {
+      // El texto queda en el campo para que el operario pueda reintentar.
+    } finally {
+      setEnviandoNota(false);
     }
   }
 
@@ -426,6 +463,52 @@ export default function Kiosko() {
             })}
           </tbody>
         </table>
+
+        <div className="border-t-4 border-amber bg-panel-alt px-4 py-3">
+          <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-wide text-amber">
+            Bitácora
+          </h2>
+
+          <div className="mb-3 flex flex-col gap-2">
+            <textarea
+              value={notaTexto}
+              onChange={(e) => setNotaTexto(e.target.value)}
+              placeholder="Escribe una novedad o solicitud del turno…"
+              rows={2}
+              className="w-full rounded border border-amber/40 bg-panel px-2 py-1 text-xs text-ink outline-none focus:border-amber"
+            />
+            <div className="flex gap-2">
+              <input
+                value={notaAutor}
+                onChange={(e) => setNotaAutor(e.target.value)}
+                placeholder="Tu nombre (opcional)"
+                className="flex-1 rounded border border-amber/40 bg-panel px-2 py-1 text-xs text-ink outline-none focus:border-amber"
+              />
+              <button
+                onClick={agregarNota}
+                disabled={enviandoNota || notaTexto.trim() === ""}
+                className="rounded bg-amber/15 border border-amber px-4 py-1 text-xs font-bold uppercase tracking-wide text-amber disabled:opacity-40"
+              >
+                {enviandoNota ? "Guardando…" : "Agregar nota"}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {bitacora.length === 0 && (
+              <p className="text-xs italic text-ink-dim">Sin notas todavía.</p>
+            )}
+            {bitacora.map((nota) => (
+              <div key={nota.id} className="border-l-2 border-amber/40 pl-2 text-xs">
+                <div className="font-data text-ink-dim">
+                  {new Date(nota.fecha).toLocaleString("es-CO")}
+                  {nota.autor ? ` · ${nota.autor}` : ""}
+                </div>
+                <div className="whitespace-pre-line text-ink">{nota.texto}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -152,8 +152,11 @@ Sub ExportarProgramacionJSON()
     Application.ScreenUpdating = True
     ThisWorkbook.Save ' persiste los IDs nuevos escritos en la columna AA
 
+    Dim observaciones As String
+    observaciones = Trim(CStr(ws.Cells(3, "A").Value))
+
     json = "{""version"":" & version & ",""ultimaActualizacion"":""" & Format(Now, "yyyy-mm-dd hh:mm:ss") & _
-        """,""columnas"":[" & colJSON & "],""filas"":[" & filas & "]}"
+        """,""observaciones"":" & JStr(observaciones) & ",""columnas"":[" & colJSON & "],""filas"":[" & filas & "]}"
 
     GuardarUTF8SinBOM rutaJSON, json
 

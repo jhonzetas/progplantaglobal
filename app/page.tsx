@@ -361,7 +361,7 @@ export default function Kiosko() {
       </header>
 
       {(prog.observaciones ?? "").trim() !== "" && (
-        <div className="shrink-0 border-b-2 border-amber bg-panel-alt px-4 py-1 max-h-[4.5rem] overflow-y-auto flex items-start gap-2">
+        <div className="shrink-0 border-b-2 border-amber bg-panel-alt px-4 py-1 max-h-[4.5rem] overflow-y-auto flex items-start gap-2 max-md:px-2">
           <span className="shrink-0 font-display font-bold uppercase tracking-wide text-amber text-xs whitespace-nowrap pt-0.5">
             OBSERVACIONES:
           </span>
@@ -377,8 +377,8 @@ export default function Kiosko() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <table className="w-full border-collapse text-[11px] leading-tight table-fixed font-data">
+      <div className="flex-1 overflow-y-auto overflow-x-auto">
+        <table className="w-full border-collapse text-[11px] leading-tight table-fixed font-data max-md:min-w-[1100px] max-md:text-[9px]">
           <colgroup>
             {COLUMNAS_VISIBLES.map((c) => (
               <col key={c.key} style={{ width: `${c.ancho}%` }} />
@@ -390,7 +390,11 @@ export default function Kiosko() {
               {COLUMNAS_VISIBLES.map((c) => (
                 <th
                   key={c.key}
-                  className="p-1 text-left border-b-2 border-b-amber border-r border-r-amber/20 align-bottom whitespace-pre-line overflow-hidden font-display font-bold uppercase tracking-wide text-ink-dim text-[11px]"
+                  className={`p-1 text-left border-b-2 border-b-amber border-r border-r-amber/20 align-bottom whitespace-pre-line overflow-hidden font-display font-bold uppercase tracking-wide text-ink-dim text-[11px] max-md:text-[9px] ${
+                    c.key === "Maquina"
+                      ? "max-md:sticky max-md:left-0 max-md:z-20 max-md:bg-panel-alt"
+                      : ""
+                  }`}
                 >
                   {c.label}
                 </th>
@@ -422,7 +426,7 @@ export default function Kiosko() {
                   {grupo.inicioGrupo && (
                     <td
                       rowSpan={grupo.tamanoGrupo}
-                      className={`p-1 border-l-2 border-amber bg-panel-alt font-display font-bold uppercase text-amber text-center align-middle text-sm tracking-wide ${divisorGrupo}`}
+                      className={`p-1 border-l-2 border-amber bg-panel-alt font-display font-bold uppercase text-amber text-center align-middle text-sm tracking-wide max-md:sticky max-md:left-0 max-md:z-20 max-md:text-[10px] ${divisorGrupo}`}
                       style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
                     >
                       {nombreCortoMaquina(fila.Maquina as string)}
@@ -477,7 +481,7 @@ export default function Kiosko() {
               rows={2}
               className="w-full rounded border border-amber/40 bg-panel px-2 py-1 text-xs text-ink outline-none focus:border-amber"
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 max-md:flex-col">
               <input
                 value={notaAutor}
                 onChange={(e) => setNotaAutor(e.target.value)}
@@ -487,7 +491,7 @@ export default function Kiosko() {
               <button
                 onClick={agregarNota}
                 disabled={enviandoNota || notaTexto.trim() === ""}
-                className="rounded bg-amber/15 border border-amber px-4 py-1 text-xs font-bold uppercase tracking-wide text-amber disabled:opacity-40"
+                className="rounded bg-amber/15 border border-amber px-4 py-1 text-xs font-bold uppercase tracking-wide text-amber disabled:opacity-40 max-md:w-full max-md:py-2"
               >
                 {enviandoNota ? "Guardando…" : "Agregar nota"}
               </button>
@@ -590,7 +594,7 @@ function BotonEstado({
   return (
     <button
       onClick={onClick}
-      className={`w-full py-1.5 rounded font-display font-extrabold text-[11px] leading-none tracking-wide transition-shadow ${
+      className={`w-full py-1.5 rounded font-display font-extrabold text-[11px] max-md:text-[9px] leading-none tracking-wide transition-shadow ${
         activo ? estilos.activo : estilos.inactivo
       }`}
     >

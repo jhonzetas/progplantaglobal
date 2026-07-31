@@ -234,12 +234,21 @@ Private Function JVal(c As Range) As String
     ElseIf IsNumeric(c.Value) And VarType(c.Value) <> vbString Then
         JVal = Replace(CStr(c.Value), ",", ".")
     Else
-        JVal = """" & Replace(Replace(CStr(c.Value), "\", "\\"), """", "\""") & """"
+        JVal = """" & EscaparJSON(CStr(c.Value)) & """"
     End If
 End Function
 
 Private Function JStr(texto As String) As String
-    JStr = """" & Replace(Replace(texto, "\", "\\"), """", "\""") & """"
+    JStr = """" & EscaparJSON(texto) & """"
+End Function
+
+Private Function EscaparJSON(texto As String) As String
+    Dim t As String
+    t = Replace(texto, "\", "\\")
+    t = Replace(t, """", "\""")
+    t = Replace(t, Chr(13), "\r")
+    t = Replace(t, Chr(10), "\n")
+    EscaparJSON = t
 End Function
 
 ' Escribe contenido UTF-8 sin BOM. ADODB.Stream con Charset="utf-8" añade un

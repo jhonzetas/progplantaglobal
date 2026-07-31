@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 type Programacion = {
   version: number;
   ultimaActualizacion: string;
+  observaciones: string;
   columnas: string[];
   filas: (string | number | null)[][];
 };
@@ -321,6 +322,17 @@ export default function Kiosko() {
           <EstadoConexion conectado={conectado} />
         </div>
       </header>
+
+      {prog.observaciones.trim() !== "" && (
+        <div className="shrink-0 border-b-2 border-amber bg-panel-alt px-4 py-1 max-h-[4.5rem] overflow-y-auto flex items-start gap-2">
+          <span className="shrink-0 font-display font-bold uppercase tracking-wide text-amber text-xs whitespace-nowrap pt-0.5">
+            OBSERVACIONES:
+          </span>
+          <span className="font-data text-xs text-ink whitespace-pre-line">
+            {prog.observaciones}
+          </span>
+        </div>
+      )}
 
       {!conectado && (
         <div className="bg-signal-red/10 text-signal-red text-center py-1 shrink-0 font-bold uppercase tracking-wide text-sm">

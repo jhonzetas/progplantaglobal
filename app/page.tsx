@@ -323,13 +323,13 @@ export default function Kiosko() {
         </div>
       </header>
 
-      {prog.observaciones.trim() !== "" && (
+      {(prog.observaciones ?? "").trim() !== "" && (
         <div className="shrink-0 border-b-2 border-amber bg-panel-alt px-4 py-1 max-h-[4.5rem] overflow-y-auto flex items-start gap-2">
           <span className="shrink-0 font-display font-bold uppercase tracking-wide text-amber text-xs whitespace-nowrap pt-0.5">
             OBSERVACIONES:
           </span>
           <span className="font-data text-xs text-ink whitespace-pre-line">
-            {prog.observaciones}
+            {prog.observaciones ?? ""}
           </span>
         </div>
       )}

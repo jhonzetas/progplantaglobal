@@ -339,19 +339,19 @@ export default function Kiosko() {
 
   return (
     <div className="h-screen w-screen overflow-hidden select-none bg-panel text-ink font-display flex flex-col">
-      <header className="encabezado-luz flex items-center justify-between px-4 py-2 border-b-2 border-amber shrink-0">
-        <div className="text-2xl font-extrabold uppercase tracking-wide border-r border-r-amber/40 pr-4">
+      <header className="encabezado-luz flex items-center justify-between px-4 py-2 border-b-2 border-amber shrink-0 max-md:flex-wrap max-md:gap-y-1 max-md:px-2 max-md:py-1.5">
+        <div className="text-2xl font-extrabold uppercase tracking-wide border-r border-r-amber/40 pr-4 max-md:text-base max-md:border-r-0 max-md:pr-0">
           <span className="text-soft-blue">Programa de</span> <span className="text-amber">Maquinado</span>
         </div>
-        <div className="font-data text-xs text-soft-blue tracking-wide border-r border-r-amber/40 px-4">
+        <div className="font-data text-xs text-soft-blue tracking-wide border-r border-r-amber/40 px-4 max-md:order-3 max-md:basis-full max-md:border-r-0 max-md:px-0">
           ACTUALIZADO {prog.ultimaActualizacion} · V{prog.version}
         </div>
-        <div className="flex items-center gap-3 pl-2">
+        <div className="flex items-center gap-3 pl-2 max-md:gap-2 max-md:pl-0">
           <BotonDeshacer disabled={historial.length === 0} onClick={deshacer} />
           {!pantallaCompleta && (
             <button
               onClick={iniciarTurno}
-              className="px-3 py-1 rounded bg-signal-blue/15 border border-signal-blue text-signal-blue text-sm font-bold uppercase tracking-wide"
+              className="px-3 py-1 rounded bg-signal-blue/15 border border-signal-blue text-signal-blue text-sm font-bold uppercase tracking-wide max-md:px-2 max-md:text-xs"
             >
               Iniciar turno
             </button>

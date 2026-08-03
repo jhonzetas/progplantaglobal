@@ -45,9 +45,19 @@ const COLUMNAS_FECHA = new Set([
   "FECHA_DESPACHO",
 ]);
 
-// OP es un código identificador (ej. 3055), no una cantidad — no lleva
-// separador de miles.
-const COLUMNAS_SIN_FORMATO_NUMERICO = new Set(["OP"]);
+// Solo estas columnas son cantidades reales; el resto (OP, REF, etc.) son
+// códigos/identificadores que aunque numéricos no deben llevar separador
+// de miles. Lista blanca en vez de negra para no depender de acordarse de
+// excluir cada columna nueva de identificador.
+const COLUMNAS_CON_FORMATO_NUMERICO = new Set([
+  "LAM",
+  "POR_PRODUCIR",
+  "PEDIDO_CLIENTE",
+  "TIEMPO_MONTAJE",
+  "VELOCIDAD",
+  "HORAS_MAQUINADO",
+  "TIEMPO_MAQUINADO",
+]);
 
 const MESES_ABR = [
   "ENE", "FEB", "MAR", "ABR", "MAY", "JUN",
@@ -67,7 +77,7 @@ function formatCelda(key: string, valor: string | number | null): string {
       return `${parseInt(dia, 10)} ${abr}`;
     }
   }
-  if (typeof valor === "number" && !COLUMNAS_SIN_FORMATO_NUMERICO.has(key)) {
+  if (typeof valor === "number" && COLUMNAS_CON_FORMATO_NUMERICO.has(key)) {
     return FORMATO_NUMERO.format(valor);
   }
   return String(valor);

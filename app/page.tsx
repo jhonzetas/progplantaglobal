@@ -293,6 +293,19 @@ export default function Kiosko() {
     }
   }
 
+  async function borrarNota(id: string) {
+    setBitacora((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await fetch("/api/bitacora", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+    } catch {
+      // La nota ya se quitó localmente; el próximo poll la restaura si el borrado no llegó a completarse.
+    }
+  }
+
   async function agregarNota() {
     const texto = notaTexto.trim();
     if (!texto) return;
@@ -513,12 +526,35 @@ export default function Kiosko() {
               <p className="text-xs italic text-ink-dim">Sin notas todavía.</p>
             )}
             {bitacora.map((nota) => (
-              <div key={nota.id} className="border-l-2 border-amber/40 pl-2 text-xs">
-                <div className="font-data text-ink-dim">
-                  {new Date(nota.fecha).toLocaleString("es-CO")}
-                  {nota.autor ? ` · ${nota.autor}` : ""}
+              <div
+                key={nota.id}
+                className="flex items-start justify-between gap-2 border-l-2 border-amber/40 pl-2 text-xs"
+              >
+                <div>
+                  <div className="font-data text-ink-dim">
+                    {new Date(nota.fecha).toLocaleString("es-CO")}
+                    {nota.autor ? ` · ${nota.autor}` : ""}
+                  </div>
+                  <div className="whitespace-pre-line text-ink">{nota.texto}</div>
                 </div>
-                <div className="whitespace-pre-line text-ink">{nota.texto}</div>
+                <button
+                  onClick={() => borrarNota(nota.id)}
+                  aria-label="Borrar nota"
+                  className="shrink-0 rounded p-1 text-ink-dim hover:bg-signal-red/10 hover:text-signal-red"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-3.5 h-3.5"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
               </div>
             ))}
           </div>

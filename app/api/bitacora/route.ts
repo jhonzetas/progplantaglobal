@@ -35,3 +35,19 @@ export async function POST(req: NextRequest) {
   await redis.lpush(LISTA_KEY, entrada);
   return NextResponse.json({ ok: true, entrada });
 }
+
+export async function DELETE(req: NextRequest) {
+  const body = (await req.json()) as { id?: string };
+  const { id } = body;
+  if (!id) {
+    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+  }
+  const entradas =
+    (await redis.lrange<EntradaBitacora>(LISTA_KEY, 0, -1)) || [];
+  const entrada = entradas.find((e) => e.id === id);
+  if (!entrada) {
+    return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+  }
+  await redis.lrem(LISTA_KEY, 0, JSON.stringify(entrada));
+  return NextResponse.json({ ok: true });
+}

@@ -53,7 +53,11 @@ export async function DELETE(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const body = (await req.json()) as { id?: string; texto?: string };
+  const body = (await req.json()) as {
+    id?: string;
+    texto?: string;
+    autor?: string;
+  };
   const { id } = body;
   const texto = (body.texto ?? "").trim();
   if (!id) {
@@ -71,7 +75,15 @@ export async function PATCH(req: NextRequest) {
   if (indice === -1) {
     return NextResponse.json({ error: "No encontrada" }, { status: 404 });
   }
-  const entradaActualizada: EntradaBitacora = { ...entradas[indice], texto };
+  const autor =
+    body.autor !== undefined
+      ? body.autor.trim() || null
+      : entradas[indice].autor;
+  const entradaActualizada: EntradaBitacora = {
+    ...entradas[indice],
+    texto,
+    autor,
+  };
   await redis.lset(LISTA_KEY, indice, entradaActualizada);
   return NextResponse.json({ ok: true, entrada: entradaActualizada });
 }

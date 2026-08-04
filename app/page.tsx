@@ -185,6 +185,7 @@ export default function Kiosko() {
   const [enviandoNota, setEnviandoNota] = useState(false);
   const [editandoNotaId, setEditandoNotaId] = useState<string | null>(null);
   const [textoEdicion, setTextoEdicion] = useState("");
+  const [autorEdicion, setAutorEdicion] = useState("");
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   // Refleja `estado` de forma síncrona (sin esperar el render de React) para
   // poder guardarlo en localStorage justo después de actualizarlo.
@@ -309,14 +310,16 @@ export default function Kiosko() {
     }
   }
 
-  function iniciarEdicion(nota: { id: string; texto: string }) {
+  function iniciarEdicion(nota: { id: string; texto: string; autor: string | null }) {
     setEditandoNotaId(nota.id);
     setTextoEdicion(nota.texto);
+    setAutorEdicion(nota.autor ?? "");
   }
 
   function cancelarEdicion() {
     setEditandoNotaId(null);
     setTextoEdicion("");
+    setAutorEdicion("");
   }
 
   async function guardarEdicion(id: string) {
@@ -327,7 +330,7 @@ export default function Kiosko() {
       const r = await fetch("/api/bitacora", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, texto }),
+        body: JSON.stringify({ id, texto, autor: autorEdicion }),
       });
       if (r.ok) {
         const data = await r.json();
@@ -336,6 +339,7 @@ export default function Kiosko() {
         );
         setEditandoNotaId(null);
         setTextoEdicion("");
+        setAutorEdicion("");
       }
     } catch {
       // Los cambios quedan en el textarea para que el operario pueda reintentar.
@@ -577,6 +581,12 @@ export default function Kiosko() {
                     </div>
                     {editando ? (
                       <div className="flex flex-col gap-1">
+                        <input
+                          value={autorEdicion}
+                          onChange={(e) => setAutorEdicion(e.target.value)}
+                          placeholder="Tu nombre (opcional)"
+                          className="w-full rounded border border-amber/40 bg-panel px-2 py-1 text-xs text-ink outline-none focus:border-amber"
+                        />
                         <textarea
                           value={textoEdicion}
                           onChange={(e) => setTextoEdicion(e.target.value)}

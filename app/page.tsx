@@ -183,6 +183,9 @@ export default function Kiosko() {
   const [notaTexto, setNotaTexto] = useState("");
   const [notaAutor, setNotaAutor] = useState("");
   const [enviandoNota, setEnviandoNota] = useState(false);
+  const [editandoNotaId, setEditandoNotaId] = useState<string | null>(null);
+  const [textoEdicion, setTextoEdicion] = useState("");
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   // Refleja `estado` de forma síncrona (sin esperar el render de React) para
   // poder guardarlo en localStorage justo después de actualizarlo.
   const estadoRef = useRef<Record<string, string>>({});
@@ -303,6 +306,41 @@ export default function Kiosko() {
       });
     } catch {
       // La nota ya se quitó localmente; el próximo poll la restaura si el borrado no llegó a completarse.
+    }
+  }
+
+  function iniciarEdicion(nota: { id: string; texto: string }) {
+    setEditandoNotaId(nota.id);
+    setTextoEdicion(nota.texto);
+  }
+
+  function cancelarEdicion() {
+    setEditandoNotaId(null);
+    setTextoEdicion("");
+  }
+
+  async function guardarEdicion(id: string) {
+    const texto = textoEdicion.trim();
+    if (!texto) return;
+    setGuardandoEdicion(true);
+    try {
+      const r = await fetch("/api/bitacora", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, texto }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setBitacora((prev) =>
+          prev.map((n) => (n.id === id ? data.entrada : n))
+        );
+        setEditandoNotaId(null);
+        setTextoEdicion("");
+      }
+    } catch {
+      // Los cambios quedan en el textarea para que el operario pueda reintentar.
+    } finally {
+      setGuardandoEdicion(false);
     }
   }
 
@@ -525,38 +563,90 @@ export default function Kiosko() {
             {bitacora.length === 0 && (
               <p className="text-xs italic text-ink-dim">Sin notas todavía.</p>
             )}
-            {bitacora.map((nota) => (
-              <div
-                key={nota.id}
-                className="flex items-start justify-between gap-2 border-l-2 border-amber/40 pl-2 text-xs"
-              >
-                <div>
-                  <div className="font-data text-ink-dim">
-                    {new Date(nota.fecha).toLocaleString("es-CO")}
-                    {nota.autor ? ` · ${nota.autor}` : ""}
-                  </div>
-                  <div className="whitespace-pre-line text-ink">{nota.texto}</div>
-                </div>
-                <button
-                  onClick={() => borrarNota(nota.id)}
-                  aria-label="Borrar nota"
-                  className="shrink-0 rounded p-1 text-ink-dim hover:bg-signal-red/10 hover:text-signal-red"
+            {bitacora.map((nota) => {
+              const editando = editandoNotaId === nota.id;
+              return (
+                <div
+                  key={nota.id}
+                  className="flex items-start justify-between gap-2 border-l-2 border-amber/40 pl-2 text-xs"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-3.5 h-3.5"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+                  <div className="flex-1">
+                    <div className="font-data text-ink-dim">
+                      {new Date(nota.fecha).toLocaleString("es-CO")}
+                      {nota.autor ? ` · ${nota.autor}` : ""}
+                    </div>
+                    {editando ? (
+                      <div className="flex flex-col gap-1">
+                        <textarea
+                          value={textoEdicion}
+                          onChange={(e) => setTextoEdicion(e.target.value)}
+                          rows={2}
+                          className="w-full rounded border border-amber/40 bg-panel px-2 py-1 text-xs text-ink outline-none focus:border-amber"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => guardarEdicion(nota.id)}
+                            disabled={guardandoEdicion || textoEdicion.trim() === ""}
+                            className="rounded bg-amber/15 border border-amber px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber disabled:opacity-40"
+                          >
+                            {guardandoEdicion ? "Guardando…" : "Guardar"}
+                          </button>
+                          <button
+                            onClick={cancelarEdicion}
+                            disabled={guardandoEdicion}
+                            className="rounded border border-amber/40 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-ink-dim disabled:opacity-40"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-line text-ink">{nota.texto}</div>
+                    )}
+                  </div>
+                  {!editando && (
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        onClick={() => iniciarEdicion(nota)}
+                        aria-label="Editar nota"
+                        className="rounded p-1 text-ink-dim hover:bg-amber/10 hover:text-amber"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="w-3.5 h-3.5"
+                        >
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => borrarNota(nota.id)}
+                        aria-label="Borrar nota"
+                        className="rounded p-1 text-ink-dim hover:bg-signal-red/10 hover:text-signal-red"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="w-3.5 h-3.5"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

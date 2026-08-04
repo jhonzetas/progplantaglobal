@@ -51,3 +51,27 @@ export async function DELETE(req: NextRequest) {
   await redis.lrem(LISTA_KEY, 0, JSON.stringify(entrada));
   return NextResponse.json({ ok: true });
 }
+
+export async function PATCH(req: NextRequest) {
+  const body = (await req.json()) as { id?: string; texto?: string };
+  const { id } = body;
+  const texto = (body.texto ?? "").trim();
+  if (!id) {
+    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+  }
+  if (!texto) {
+    return NextResponse.json(
+      { error: "El texto no puede estar vacío" },
+      { status: 400 }
+    );
+  }
+  const entradas =
+    (await redis.lrange<EntradaBitacora>(LISTA_KEY, 0, -1)) || [];
+  const indice = entradas.findIndex((e) => e.id === id);
+  if (indice === -1) {
+    return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+  }
+  const entradaActualizada: EntradaBitacora = { ...entradas[indice], texto };
+  await redis.lset(LISTA_KEY, indice, entradaActualizada);
+  return NextResponse.json({ ok: true, entrada: entradaActualizada });
+}

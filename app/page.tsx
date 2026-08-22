@@ -258,40 +258,8 @@ export default function Kiosko() {
   }, []);
 
   async function marcar(opId: string, valor: Estado, registrarHistorial = true) {
-    const valorAnterior = estadoRef.current[opId] as Estado | undefined;
-
-    // Toggle: si el operario toca de nuevo el botón que YA estaba activo,
-    // la fila se limpia (equivale a "quitar el sombreado"). Antes solo se
-    // podía deshacer con el botón global si la marcación era una de las
-    // últimas 5 y no había pasado más actividad en el medio — reportado
-    // 2026-08-22 como problema real en la tablet de planta. La acción
-    // sigue registrándose en el historial para que Deshacer también
-    // pueda revertir un toggle-off accidental.
-    if (valorAnterior === valor) {
-      if (registrarHistorial) {
-        setHistorial((prev) => [...prev, { id: opId, valorAnterior }].slice(-5));
-      }
-      actualizarEstado((prev) => {
-        const siguiente = { ...prev };
-        delete siguiente[opId];
-        return siguiente;
-      });
-      enviosPendientes.current.add(opId);
-      try {
-        await fetch("/api/estado", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: opId }),
-        });
-      } catch {
-        // El estado ya quedó limpiado localmente; el próximo poll lo reconciliará.
-      } finally {
-        enviosPendientes.current.delete(opId);
-      }
-      return;
-    }
-
     if (registrarHistorial) {
+      const valorAnterior = estadoRef.current[opId] as Estado | undefined;
       setHistorial((prev) => [...prev, { id: opId, valorAnterior }].slice(-5));
     }
     actualizarEstado((prev) => ({ ...prev, [opId]: valor }));
@@ -307,6 +275,16 @@ export default function Kiosko() {
     } finally {
       enviosPendientes.current.delete(opId);
     }
+  }
+
+  // Wrapper que registra en el historial de Deshacer para poder revertir
+  // un "quitar marca" accidental. La función limpiarEstado de abajo no lo
+  // hace por sí sola porque también la usa el flujo de deshacer.
+  async function quitarMarca(opId: string) {
+    const valorAnterior = estadoRef.current[opId] as Estado | undefined;
+    if (!valorAnterior) return;
+    setHistorial((prev) => [...prev, { id: opId, valorAnterior }].slice(-5));
+    await limpiarEstado(opId);
   }
 
   async function limpiarEstado(opId: string) {
@@ -557,6 +535,15 @@ export default function Kiosko() {
                         color="blue"
                         onClick={() => marcar(fila.ID, "TER")}
                       />
+                      {actual && (
+                        <button
+                          onClick={() => quitarMarca(fila.ID)}
+                          aria-label="Quitar marca de esta fila"
+                          className="w-full py-1 rounded font-display font-extrabold text-[10px] max-md:text-[8px] leading-none tracking-wide border border-signal-red/60 bg-signal-red/15 text-signal-red hover:bg-signal-red/25"
+                        >
+                          ✕ QUITAR
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -772,18 +759,11 @@ function BotonEstado({
   return (
     <button
       onClick={onClick}
-      // Aria/title cambian según estado para que el operario (y lectores de
-      // pantalla) sepan que tocar de nuevo el botón activo lo desmarca.
-      aria-label={activo ? `${label} activo. Toca de nuevo para quitar la marca.` : `Marcar ${label}`}
-      title={activo ? `Toca de nuevo para quitar la marca` : undefined}
       className={`w-full py-1.5 rounded font-display font-extrabold text-[11px] max-md:text-[9px] leading-none tracking-wide transition-shadow ${
         activo ? estilos.activo : estilos.inactivo
       }`}
     >
-      <span className="inline-flex items-center justify-center gap-1">
-        {label}
-        {activo && <span className="text-[9px] max-md:text-[7px] opacity-70">✕</span>}
-      </span>
+      {label}
     </button>
   );
 }

@@ -87,18 +87,6 @@ function formatCelda(key: string, valor: string | number | null): string {
   return String(valor);
 }
 
-// Fecha ISO (YYYY-MM-DD) de ayer, en la zona horaria del dispositivo.
-// Se usa para prellenar el campo al actualizar la producción del turno
-// anterior, de modo que normalmente el operario solo escribe el número.
-function ayerISO(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dia = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dia}`;
-}
-
 // "2026-09-07" -> "7/9/26"
 function fechaCorta(iso: string): string {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -224,13 +212,11 @@ export default function Kiosko() {
   const [textoEdicion, setTextoEdicion] = useState("");
   const [autorEdicion, setAutorEdicion] = useState("");
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  // Producción del turno anterior: solo lectura. La alimenta reporte-maquinado
+  // vía /api/produccion; no se edita desde el kiosko.
   const [produccionAnterior, setProduccionAnterior] = useState<
     { unidades: number; fecha: string } | null
   >(null);
-  const [editandoProduccion, setEditandoProduccion] = useState(false);
-  const [prodUnidadesInput, setProdUnidadesInput] = useState("");
-  const [prodFechaInput, setProdFechaInput] = useState("");
-  const [guardandoProduccion, setGuardandoProduccion] = useState(false);
   // Refleja `estado` de forma síncrona (sin esperar el render de React) para
   // poder guardarlo en localStorage justo después de actualizarlo.
   const estadoRef = useRef<Record<string, string>>({});
@@ -407,42 +393,6 @@ export default function Kiosko() {
     }
   }
 
-  function iniciarEdicionProduccion() {
-    setProdUnidadesInput(
-      produccionAnterior ? String(produccionAnterior.unidades) : ""
-    );
-    setProdFechaInput(produccionAnterior?.fecha ?? ayerISO());
-    setEditandoProduccion(true);
-  }
-
-  function cancelarEdicionProduccion() {
-    setEditandoProduccion(false);
-  }
-
-  async function guardarProduccion() {
-    // Tolera que escriban "143.723", "143 723" o "143,723".
-    const unidades = Number(prodUnidadesInput.replace(/[^\d]/g, ""));
-    const fecha = prodFechaInput;
-    if (!Number.isFinite(unidades) || unidades <= 0 || !fecha) return;
-    setGuardandoProduccion(true);
-    try {
-      const r = await fetch("/api/produccion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unidades, fecha }),
-      });
-      if (r.ok) {
-        const data = await r.json();
-        setProduccionAnterior(data.dato);
-        setEditandoProduccion(false);
-      }
-    } catch {
-      // Los valores quedan en el formulario para poder reintentar.
-    } finally {
-      setGuardandoProduccion(false);
-    }
-  }
-
   async function agregarNota() {
     const texto = notaTexto.trim();
     if (!texto) return;
@@ -534,85 +484,22 @@ export default function Kiosko() {
         </div>
 
         <div className="group flex items-center gap-3 rounded-lg border border-amber/60 bg-amber/10 px-5 py-1.5 shadow-[0_0_18px_rgba(255,176,32,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-amber hover:bg-amber/20 hover:shadow-[0_0_28px_rgba(255,176,32,0.45)] max-md:gap-2 max-md:px-3 max-md:py-1">
-          {editandoProduccion ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                guardarProduccion();
-              }}
-              className="flex items-center gap-2 max-md:flex-wrap"
-            >
-              <span className="font-display text-[11px] font-bold uppercase tracking-wide text-amber max-md:text-[9px]">
-                Producción turno anterior
-              </span>
-              <input
-                type="date"
-                value={prodFechaInput}
-                onChange={(e) => setProdFechaInput(e.target.value)}
-                className="rounded border border-amber/40 bg-panel px-2 py-1 font-data text-xs text-ink outline-none focus:border-amber"
-              />
-              <input
-                inputMode="numeric"
-                autoFocus
-                value={prodUnidadesInput}
-                onChange={(e) => setProdUnidadesInput(e.target.value)}
-                placeholder="unidades"
-                className="w-28 rounded border border-amber/40 bg-panel px-2 py-1 font-data text-sm text-ink outline-none focus:border-amber"
-              />
-              <button
-                type="submit"
-                disabled={guardandoProduccion || prodUnidadesInput.trim() === ""}
-                className="rounded border border-amber bg-amber/15 px-3 py-1 font-display text-[11px] font-bold uppercase tracking-wide text-amber disabled:opacity-40"
-              >
-                {guardandoProduccion ? "Guardando…" : "Guardar"}
-              </button>
-              <button
-                type="button"
-                onClick={cancelarEdicionProduccion}
-                disabled={guardandoProduccion}
-                className="rounded border border-amber/40 px-2 py-1 font-display text-[11px] font-bold uppercase tracking-wide text-ink-dim disabled:opacity-40"
-              >
-                Cancelar
-              </button>
-            </form>
-          ) : (
-            <>
-              <div className="flex flex-col leading-none">
-                <span className="font-display text-sm font-bold uppercase tracking-[0.16em] text-amber max-md:text-[10px] max-md:tracking-[0.1em]">
-                  Producción turno anterior
-                </span>
-                <span className="mt-0.5 font-data text-[11px] text-ink-dim max-md:text-[9px]">
-                  {produccionAnterior ? fechaCorta(produccionAnterior.fecha) : "sin registro"}
-                </span>
-              </div>
-              <span className="font-data text-3xl font-bold leading-none tabular-nums text-ink transition-colors duration-200 group-hover:text-amber max-md:text-xl">
-                {produccionAnterior
-                  ? FORMATO_NUMERO.format(produccionAnterior.unidades)
-                  : "—"}
-              </span>
-              <span className="font-display text-sm font-bold uppercase tracking-wide text-ink-dim max-md:text-[10px]">
-                unidades
-              </span>
-              <button
-                onClick={iniciarEdicionProduccion}
-                aria-label="Actualizar producción del turno anterior"
-                className="ml-1 rounded p-1 text-ink-dim transition-colors hover:bg-amber/20 hover:text-amber"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-4 w-4"
-                >
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
-              </button>
-            </>
-          )}
+          <div className="flex flex-col leading-none">
+            <span className="font-display text-sm font-bold uppercase tracking-[0.16em] text-amber max-md:text-[10px] max-md:tracking-[0.1em]">
+              Producción turno anterior
+            </span>
+            <span className="mt-0.5 font-data text-[11px] text-ink-dim max-md:text-[9px]">
+              {produccionAnterior ? fechaCorta(produccionAnterior.fecha) : "sin registro"}
+            </span>
+          </div>
+          <span className="font-data text-3xl font-bold leading-none tabular-nums text-ink transition-colors duration-200 group-hover:text-amber max-md:text-xl">
+            {produccionAnterior
+              ? FORMATO_NUMERO.format(produccionAnterior.unidades)
+              : "—"}
+          </span>
+          <span className="font-display text-sm font-bold uppercase tracking-wide text-ink-dim max-md:text-[10px]">
+            unidades
+          </span>
         </div>
       </div>
 

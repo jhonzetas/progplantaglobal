@@ -67,6 +67,10 @@ const MESES_ABR = [
 const POLL_MS = 20000;
 const FORMATO_NUMERO = new Intl.NumberFormat("es-CO");
 
+// Meta de unidades a producir en el día. Cambiar aquí este número si la
+// planta ajusta el objetivo; se muestra en la tarjeta bajo el título.
+const OBJETIVO_PRODUCCION_DIARIA = 850000;
+
 function formatCelda(key: string, valor: string | number | null): string {
   if (valor === null || valor === undefined || valor === "") return "";
   if (COLUMNAS_FECHA.has(key) && typeof valor === "string") {
@@ -447,6 +451,20 @@ export default function Kiosko() {
           <EstadoConexion conectado={conectado} />
         </div>
       </header>
+
+      <div className="shrink-0 flex justify-center border-b-2 border-amber bg-panel-alt px-4 py-2 max-md:px-2 max-md:py-1.5">
+        <div className="flex items-center gap-3 rounded-lg border border-electric-blue/60 bg-electric-blue/10 px-5 py-1.5 shadow-[0_0_18px_rgba(20,99,255,0.25)] max-md:gap-2 max-md:px-3 max-md:py-1">
+          <span className="font-display text-sm font-bold uppercase tracking-[0.18em] text-soft-blue max-md:text-[10px] max-md:tracking-[0.12em]">
+            Objetivo de producción diaria
+          </span>
+          <span className="font-data text-3xl font-bold leading-none tabular-nums text-ink max-md:text-xl">
+            {FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}
+          </span>
+          <span className="font-display text-sm font-bold uppercase tracking-wide text-ink-dim max-md:text-[10px]">
+            unidades
+          </span>
+        </div>
+      </div>
 
       {(prog.observaciones ?? "").trim() !== "" && (
         <div className="shrink-0 border-b-2 border-amber bg-panel-alt px-4 py-1 max-h-[4.5rem] overflow-y-auto flex items-start gap-2 max-md:px-2">

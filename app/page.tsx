@@ -453,11 +453,11 @@ export default function Kiosko() {
       </header>
 
       <div className="shrink-0 flex justify-center border-b-2 border-amber bg-panel-alt px-4 py-2 max-md:px-2 max-md:py-1.5">
-        <div className="flex items-center gap-3 rounded-lg border border-electric-blue/60 bg-electric-blue/10 px-5 py-1.5 shadow-[0_0_18px_rgba(20,99,255,0.25)] max-md:gap-2 max-md:px-3 max-md:py-1">
+        <div className="group flex items-center gap-3 rounded-lg border border-electric-blue/60 bg-electric-blue/10 px-5 py-1.5 shadow-[0_0_18px_rgba(20,99,255,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-electric-blue hover:bg-electric-blue/20 hover:shadow-[0_0_28px_rgba(20,99,255,0.5)] max-md:gap-2 max-md:px-3 max-md:py-1">
           <span className="font-display text-sm font-bold uppercase tracking-[0.18em] text-soft-blue max-md:text-[10px] max-md:tracking-[0.12em]">
             Objetivo de producción diaria
           </span>
-          <span className="font-data text-3xl font-bold leading-none tabular-nums text-ink max-md:text-xl">
+          <span className="font-data text-3xl font-bold leading-none tabular-nums text-ink transition-colors duration-200 group-hover:text-soft-blue max-md:text-xl">
             {FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}
           </span>
           <span className="font-display text-sm font-bold uppercase tracking-wide text-ink-dim max-md:text-[10px]">

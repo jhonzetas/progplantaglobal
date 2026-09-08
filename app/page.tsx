@@ -98,9 +98,22 @@ function nombreCortoMaquina(nombre: string): string {
 }
 
 function filasAObjetos(prog: Programacion): FilaObj[] {
+  // Blindaje contra IDs repetidos en el Excel de origen: al copiar/pegar una
+  // fila entera, su ID (columna AA) viaja con la copia y dos trabajos distintos
+  // terminan compartiendo ID. Como la marca TRA/TER se guarda por ID, eso hacía
+  // que marcar una fila resaltara todas las que comparten ese ID. A la 2ª y
+  // siguientes apariciones se les añade un sufijo para que la app las trate
+  // como filas independientes. Es determinista (depende solo del orden de
+  // filas), así que el ID usado en el render coincide con el que se envía a
+  // /api/estado y con el que se guarda en Redis.
+  const vistos = new Map<string, number>();
   return prog.filas.map((fila) => {
     const obj: any = {};
     prog.columnas.forEach((c, i) => (obj[c] = fila[i]));
+    const idBase = String(obj.ID ?? "");
+    const n = (vistos.get(idBase) ?? 0) + 1;
+    vistos.set(idBase, n);
+    if (n > 1) obj.ID = `${idBase}#${n}`;
     return obj as FilaObj;
   });
 }

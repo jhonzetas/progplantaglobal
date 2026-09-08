@@ -2,9 +2,13 @@ Option Explicit
 
 ' Vive en GESTION DE PRODUCCION PLANTA GLOBAL_1.xlsm, junto a ActualizarFechas.
 ' Lee de la hoja "Programa_Maq". Para quitar o agregar un trabajo, borra/inserta
-' la FILA COMPLETA (clic derecho sobre el número de fila) — si en cambio borras
-' el contenido de una fila y escribes un trabajo nuevo encima, la columna AA no
-' se limpia sola y el ID (con su marca TRA/TER) queda pegado al trabajo nuevo.
+' la FILA COMPLETA (clic derecho sobre el número de fila).
+'
+' El export ahora garantiza que cada fila lleve un ID único: si dos filas traen
+' el mismo valor en la columna AA (típico al copiar/pegar una fila entera, o al
+' escribir un trabajo nuevo sobre el contenido de otro sin limpiar AA), a la
+' segunda se le genera un ID nuevo y se reescribe en AA. Sin esto, el kiosko
+' resaltaba varias filas a la vez al marcar TRA/TER, porque comparten la clave.
 
 Sub ExportarProgramacionJSON()
     Const COL_ID_UNICO As Integer = 27 ' columna AA
@@ -18,6 +22,7 @@ Sub ExportarProgramacionJSON()
     Dim version As Long
     Dim primeraFila As Boolean
     Dim hojaActiva As Worksheet
+    Dim idsVistos As Object ' Scripting.Dictionary de IDs ya emitidos en esta corrida
 
     Set hojaActiva = ActiveSheet
     Application.ScreenUpdating = False
@@ -52,6 +57,8 @@ Sub ExportarProgramacionJSON()
     Next i
 
     filas = "": maquinaActual = "SIN_MAQUINA": contador = 0: cerrada = False: primeraFila = True
+    Set idsVistos = CreateObject("Scripting.Dictionary")
+    idsVistos.CompareMode = 1 ' vbTextCompare — trata "abc" y "ABC" como el mismo ID
     Application.ScreenUpdating = False
 
     For r = 5 To lastRow
@@ -85,12 +92,16 @@ Sub ExportarProgramacionJSON()
             contador = contador + 1
             Dim idFila As String, celdaID As Range
             Set celdaID = ws.Cells(r, COL_ID_UNICO)
-            If Trim(CStr(celdaID.Value)) = "" Then
+            idFila = Trim(CStr(celdaID.Value))
+            ' Genera un ID nuevo si la celda AA está vacía O si ese ID ya lo usó
+            ' otra fila en esta corrida (fila copiada/pegada con su AA a cuestas).
+            ' El contador SiguienteIDUnico es creciente y los IDs quedan escritos
+            ' en AA, así que un ID recién generado nunca choca con los anteriores.
+            If idFila = "" Or idsVistos.Exists(idFila) Then
                 idFila = LimpiarID(maquinaActual) & "_" & Format(SiguienteIDUnico(), "00000")
                 celdaID.Value = idFila
-            Else
-                idFila = Trim(CStr(celdaID.Value))
             End If
+            idsVistos(idFila) = True
 
             If Not primeraFila Then filas = filas & ","
             primeraFila = False

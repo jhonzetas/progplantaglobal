@@ -72,21 +72,100 @@ const FORMATO_NUMERO = new Intl.NumberFormat("es-CO");
 const OBJETIVO_PRODUCCION_DIARIA = 800000; // unidades
 const META_MONTAJES_DIARIA = 18; // montajes (cambios de referencia)
 
-// Umbrales del % de cumplimiento para el color del número.
+// Umbrales del % de cumplimiento para el color / acento de la tarjeta.
 const CUMPLIMIENTO_OK = 100; // verde a partir de aquí
 const CUMPLIMIENTO_MEDIO = 85; // ámbar entre MEDIO y OK; rojo por debajo
 
-function colorCumplimiento(pct: number | null): string {
+function fmtPct(pct: number | null): string {
+  return pct === null
+    ? "—"
+    : `${pct.toLocaleString("es-CO", { maximumFractionDigits: 1 })}%`;
+}
+
+// Paletas de las tarjetas del marcador. `card` = borde + fondo + resplandor
+// (base y hover); `num` = color al que vira el número grande en hover.
+type AcentoTarjeta = "azul" | "ambar" | "verde" | "rojo" | "gris";
+const ACENTOS_TARJETA: Record<AcentoTarjeta, { card: string; num: string }> = {
+  azul: {
+    card: "border-electric-blue/60 bg-electric-blue/10 shadow-[0_0_18px_rgba(20,99,255,0.25)] hover:border-electric-blue hover:bg-electric-blue/20 hover:shadow-[0_0_30px_rgba(20,99,255,0.55)]",
+    num: "group-hover:text-soft-blue",
+  },
+  ambar: {
+    card: "border-amber/60 bg-amber/10 shadow-[0_0_18px_rgba(255,176,32,0.2)] hover:border-amber hover:bg-amber/20 hover:shadow-[0_0_30px_rgba(255,176,32,0.5)]",
+    num: "group-hover:text-amber",
+  },
+  verde: {
+    card: "border-signal-green/60 bg-signal-green/10 shadow-[0_0_18px_rgba(51,226,122,0.22)] hover:border-signal-green hover:bg-signal-green/20 hover:shadow-[0_0_30px_rgba(51,226,122,0.55)]",
+    num: "group-hover:text-signal-green",
+  },
+  rojo: {
+    card: "border-signal-red/60 bg-signal-red/10 shadow-[0_0_18px_rgba(255,77,77,0.22)] hover:border-signal-red hover:bg-signal-red/20 hover:shadow-[0_0_30px_rgba(255,77,77,0.55)]",
+    num: "group-hover:text-signal-red",
+  },
+  gris: {
+    card: "border-soft-blue/40 bg-soft-blue/10 shadow-[0_0_18px_rgba(143,198,255,0.16)] hover:border-soft-blue hover:bg-soft-blue/20 hover:shadow-[0_0_30px_rgba(143,198,255,0.4)]",
+    num: "group-hover:text-soft-blue",
+  },
+};
+
+function acentoCumplimiento(pct: number | null): AcentoTarjeta {
+  if (pct === null) return "gris";
+  if (pct >= CUMPLIMIENTO_OK) return "verde";
+  if (pct >= CUMPLIMIENTO_MEDIO) return "ambar";
+  return "rojo";
+}
+
+function colorNumeroCumplimiento(pct: number | null): string {
   if (pct === null) return "text-ink-dim";
   if (pct >= CUMPLIMIENTO_OK) return "text-signal-green";
   if (pct >= CUMPLIMIENTO_MEDIO) return "text-amber";
   return "text-signal-red";
 }
 
-function fmtPct(pct: number | null): string {
-  return pct === null
-    ? "—"
-    : `${pct.toLocaleString("es-CO", { maximumFractionDigits: 1 })}%`;
+function TarjetaMarcador({
+  titulo,
+  subtitulo,
+  valor,
+  sufijo,
+  acento,
+  colorValor,
+}: {
+  titulo: string;
+  subtitulo?: string;
+  valor: string;
+  sufijo?: string;
+  acento: AcentoTarjeta;
+  colorValor?: string; // fija el color del número (para el %); si no, hereda ink + hover
+}) {
+  const est = ACENTOS_TARJETA[acento];
+  return (
+    <div
+      className={`group flex items-center gap-3 rounded-lg border px-5 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.03] max-md:gap-2 max-md:px-3 max-md:py-1.5 ${est.card}`}
+    >
+      <div className="flex flex-col leading-tight">
+        <span className="font-display text-xs font-bold uppercase tracking-[0.16em] text-ink-dim max-md:text-[9px] max-md:tracking-[0.1em]">
+          {titulo}
+        </span>
+        {subtitulo && (
+          <span className="mt-0.5 font-data text-[11px] text-ink-dim max-md:text-[9px]">
+            {subtitulo}
+          </span>
+        )}
+      </div>
+      <span
+        className={`font-data text-3xl font-bold leading-none tabular-nums transition-colors duration-200 max-md:text-2xl ${
+          colorValor ?? `text-ink ${est.num}`
+        }`}
+      >
+        {valor}
+        {sufijo && (
+          <span className="ml-1 font-display text-sm font-bold uppercase text-ink-dim max-md:text-[10px]">
+            {sufijo}
+          </span>
+        )}
+      </span>
+    </div>
+  );
 }
 
 function formatCelda(key: string, valor: string | number | null): string {
@@ -494,51 +573,54 @@ export default function Kiosko() {
         const montajes = prod?.montajes ?? null;
         const pctM =
           montajes !== null ? (montajes / META_MONTAJES_DIARIA) * 100 : null;
-        const th =
-          "text-center font-display text-[10px] font-bold uppercase tracking-[0.14em] text-ink-dim max-md:text-[8px]";
-        const meta = "text-center font-data text-lg font-bold tabular-nums text-ink-dim max-md:text-sm";
-        const val = "text-center font-data text-xl font-bold tabular-nums text-ink max-md:text-base";
-        const pctCel = "text-center font-data text-2xl font-extrabold leading-none tabular-nums max-md:text-lg";
+        const fecha = prod ? fechaCorta(prod.fecha) : "sin registro";
+        const rotulo =
+          "shrink-0 w-24 font-display text-base font-extrabold uppercase tracking-[0.14em] max-md:w-full max-md:text-center max-md:text-sm";
         return (
           <div className="shrink-0 border-b-2 border-amber bg-panel-alt px-4 py-2 max-md:px-2 max-md:py-1.5">
-            <div className="mx-auto grid max-w-2xl grid-cols-[minmax(64px,auto)_1fr_1fr_1fr] items-center gap-x-3 gap-y-1.5 max-md:gap-x-2">
-              <span />
-              <span className={th}>Meta</span>
-              <span className={th}>
-                Turno anterior
-                {prod && (
-                  <span className="ml-1 font-data text-[9px] font-normal normal-case tracking-normal text-soft-blue/80">
-                    {fechaCorta(prod.fecha)}
-                  </span>
-                )}
-              </span>
-              <span className={th}>Cumplimiento</span>
-
-              <span className="font-display text-xs font-bold uppercase tracking-wide text-soft-blue max-md:text-[9px]">
-                Unidades
-              </span>
-              <span className={meta}>
-                {FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}
-              </span>
-              <span className={val}>
-                {prod ? FORMATO_NUMERO.format(prod.unidades) : "—"}
-              </span>
-              <span className={`${pctCel} ${colorCumplimiento(pctU)}`}>
-                {fmtPct(pctU)}
-              </span>
-
-              <span className="col-span-4 h-px bg-amber/15" />
-
-              <span className="font-display text-xs font-bold uppercase tracking-wide text-amber max-md:text-[9px]">
-                Montajes
-              </span>
-              <span className={meta}>{META_MONTAJES_DIARIA}</span>
-              <span className={val}>
-                {montajes !== null ? FORMATO_NUMERO.format(montajes) : "—"}
-              </span>
-              <span className={`${pctCel} ${colorCumplimiento(pctM)}`}>
-                {fmtPct(pctM)}
-              </span>
+            <div className="mx-auto flex max-w-4xl flex-col gap-2">
+              <div className="flex items-center justify-center gap-3 max-md:flex-wrap max-md:gap-2">
+                <span className={`${rotulo} text-soft-blue`}>Unidades</span>
+                <TarjetaMarcador
+                  titulo="Meta diaria"
+                  valor={FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}
+                  acento="azul"
+                />
+                <TarjetaMarcador
+                  titulo="Turno anterior"
+                  subtitulo={fecha}
+                  valor={prod ? FORMATO_NUMERO.format(prod.unidades) : "—"}
+                  acento="ambar"
+                />
+                <TarjetaMarcador
+                  titulo="Cumplimiento"
+                  subtitulo={prod ? `de ${FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}` : "sin dato"}
+                  valor={fmtPct(pctU)}
+                  acento={acentoCumplimiento(pctU)}
+                  colorValor={colorNumeroCumplimiento(pctU)}
+                />
+              </div>
+              <div className="flex items-center justify-center gap-3 max-md:flex-wrap max-md:gap-2">
+                <span className={`${rotulo} text-amber`}>Montajes</span>
+                <TarjetaMarcador
+                  titulo="Meta diaria"
+                  valor={String(META_MONTAJES_DIARIA)}
+                  acento="azul"
+                />
+                <TarjetaMarcador
+                  titulo="Turno anterior"
+                  subtitulo={fecha}
+                  valor={montajes !== null ? String(montajes) : "—"}
+                  acento="ambar"
+                />
+                <TarjetaMarcador
+                  titulo="Cumplimiento"
+                  subtitulo={montajes !== null ? `de ${META_MONTAJES_DIARIA}` : "sin dato"}
+                  valor={fmtPct(pctM)}
+                  acento={acentoCumplimiento(pctM)}
+                  colorValor={colorNumeroCumplimiento(pctM)}
+                />
+              </div>
             </div>
           </div>
         );

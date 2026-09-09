@@ -68,8 +68,13 @@ const POLL_MS = 20000;
 const FORMATO_NUMERO = new Intl.NumberFormat("es-CO");
 
 // Meta de unidades a producir en el día. Cambiar aquí este número si la
-// planta ajusta el objetivo; se muestra en la tarjeta bajo el título.
-const OBJETIVO_PRODUCCION_DIARIA = 850000;
+// planta ajusta el objetivo; alimenta la tarjeta de objetivo y el % de
+// cumplimiento (producción del turno anterior ÷ este objetivo).
+const OBJETIVO_PRODUCCION_DIARIA = 800000;
+
+// Umbrales del % de cumplimiento para el color de la tarjeta.
+const CUMPLIMIENTO_OK = 100; // verde a partir de aquí
+const CUMPLIMIENTO_MEDIO = 85; // ámbar entre MEDIO y OK; rojo por debajo
 
 function formatCelda(key: string, valor: string | number | null): string {
   if (valor === null || valor === undefined || valor === "") return "";
@@ -501,6 +506,55 @@ export default function Kiosko() {
             unidades
           </span>
         </div>
+
+        {(() => {
+          const pct = produccionAnterior
+            ? (produccionAnterior.unidades / OBJETIVO_PRODUCCION_DIARIA) * 100
+            : null;
+          const est =
+            pct === null
+              ? {
+                  card: "border-soft-blue/50 bg-soft-blue/10 hover:border-soft-blue hover:bg-soft-blue/20 shadow-[0_0_18px_rgba(143,198,255,0.18)] hover:shadow-[0_0_28px_rgba(143,198,255,0.4)]",
+                  num: "text-ink-dim",
+                }
+              : pct >= CUMPLIMIENTO_OK
+              ? {
+                  card: "border-signal-green/60 bg-signal-green/10 hover:border-signal-green hover:bg-signal-green/20 shadow-[0_0_18px_rgba(51,226,122,0.22)] hover:shadow-[0_0_28px_rgba(51,226,122,0.5)]",
+                  num: "text-signal-green",
+                }
+              : pct >= CUMPLIMIENTO_MEDIO
+              ? {
+                  card: "border-amber/60 bg-amber/10 hover:border-amber hover:bg-amber/20 shadow-[0_0_18px_rgba(255,176,32,0.2)] hover:shadow-[0_0_28px_rgba(255,176,32,0.45)]",
+                  num: "text-amber",
+                }
+              : {
+                  card: "border-signal-red/60 bg-signal-red/10 hover:border-signal-red hover:bg-signal-red/20 shadow-[0_0_18px_rgba(255,77,77,0.22)] hover:shadow-[0_0_28px_rgba(255,77,77,0.5)]",
+                  num: "text-signal-red",
+                };
+          return (
+            <div
+              className={`group flex items-center gap-3 rounded-lg border px-5 py-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] max-md:gap-2 max-md:px-3 max-md:py-1 ${est.card}`}
+            >
+              <div className="flex flex-col leading-none">
+                <span className="font-display text-sm font-bold uppercase tracking-[0.16em] text-ink-dim max-md:text-[10px] max-md:tracking-[0.1em]">
+                  Cumplimiento de la meta
+                </span>
+                <span className="mt-0.5 font-data text-[11px] text-ink-dim max-md:text-[9px]">
+                  {produccionAnterior
+                    ? `${FORMATO_NUMERO.format(produccionAnterior.unidades)} / ${FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}`
+                    : "sin dato del turno anterior"}
+                </span>
+              </div>
+              <span
+                className={`font-data text-3xl font-bold leading-none tabular-nums max-md:text-xl ${est.num}`}
+              >
+                {pct === null
+                  ? "—"
+                  : `${pct.toLocaleString("es-CO", { maximumFractionDigits: 1 })}%`}
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {(prog.observaciones ?? "").trim() !== "" && (

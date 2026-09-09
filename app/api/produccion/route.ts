@@ -14,7 +14,11 @@ const KEY_CACHE = "kiosko:produccion_auto_cache";
 const CACHE_TTL_OK_S = 600; // 10 min cuando hay dato
 const CACHE_TTL_MISS_S = 60; // 1 min cuando no lo hay, para reintentar pronto
 
-type ProduccionAnterior = { unidades: number; fecha: string };
+type ProduccionAnterior = {
+  unidades: number;
+  fecha: string;
+  montajes: number | null;
+};
 // En caché guardamos también los "sin dato" (como { vacio: true }) para no
 // rehacer la cadena completa (redis + fetch entre apps) en cada poll.
 type CacheAuto = ProduccionAnterior | { vacio: true };
@@ -35,7 +39,11 @@ export async function GET() {
       cache: "no-store",
     });
     const data = r.ok
-      ? ((await r.json()) as { fecha: string | null; unidades: number | null })
+      ? ((await r.json()) as {
+          fecha: string | null;
+          unidades: number | null;
+          montajes?: number | null;
+        })
       : null;
     if (!data || !data.fecha || data.unidades == null) {
       await redis.set(KEY_CACHE, { vacio: true }, { ex: CACHE_TTL_MISS_S });
@@ -44,6 +52,7 @@ export async function GET() {
     const dato: ProduccionAnterior = {
       fecha: data.fecha,
       unidades: data.unidades,
+      montajes: data.montajes ?? null,
     };
     await redis.set(KEY_CACHE, dato, { ex: CACHE_TTL_OK_S });
     return NextResponse.json(dato);

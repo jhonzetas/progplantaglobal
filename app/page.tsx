@@ -140,20 +140,20 @@ function TarjetaMarcador({
   const est = ACENTOS_TARJETA[acento];
   return (
     <div
-      className={`group flex items-center gap-3 rounded-lg border px-5 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.03] max-md:gap-2 max-md:px-3 max-md:py-1.5 ${est.card}`}
+      className={`group flex h-full w-full items-center justify-between gap-3 rounded-lg border px-4 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.03] max-md:gap-2 max-md:px-3 max-md:py-1.5 ${est.card}`}
     >
-      <div className="flex flex-col leading-tight">
+      <div className="flex min-w-0 flex-col leading-tight">
         <span className="font-display text-xs font-bold uppercase tracking-[0.16em] text-ink-dim max-md:text-[9px] max-md:tracking-[0.1em]">
           {titulo}
         </span>
         {subtitulo && (
-          <span className="mt-0.5 font-data text-[11px] text-ink-dim max-md:text-[9px]">
+          <span className="mt-0.5 truncate font-data text-[11px] text-ink-dim max-md:text-[9px]">
             {subtitulo}
           </span>
         )}
       </div>
       <span
-        className={`font-data text-3xl font-bold leading-none tabular-nums transition-colors duration-200 max-md:text-2xl ${
+        className={`shrink-0 font-data text-3xl font-bold leading-none tabular-nums transition-colors duration-200 max-md:text-2xl ${
           colorValor ?? `text-ink ${est.num}`
         }`}
       >
@@ -164,6 +164,29 @@ function TarjetaMarcador({
           </span>
         )}
       </span>
+    </div>
+  );
+}
+
+// Una fila del marcador: rótulo a la izquierda + 3 tarjetas en columnas
+// iguales, de modo que las dos filas quedan alineadas como una tabla.
+function FilaMarcador({
+  rotulo,
+  rotuloColor,
+  tarjetas,
+}: {
+  rotulo: string;
+  rotuloColor: string;
+  tarjetas: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[5.5rem_repeat(3,minmax(0,1fr))] items-stretch gap-3 max-md:grid-cols-3 max-md:gap-2">
+      <span
+        className={`self-center font-display text-base font-extrabold uppercase tracking-[0.14em] ${rotuloColor} max-md:col-span-3 max-md:text-center max-md:text-sm`}
+      >
+        {rotulo}
+      </span>
+      {tarjetas}
     </div>
   );
 }
@@ -574,53 +597,61 @@ export default function Kiosko() {
         const pctM =
           montajes !== null ? (montajes / META_MONTAJES_DIARIA) * 100 : null;
         const fecha = prod ? fechaCorta(prod.fecha) : "sin registro";
-        const rotulo =
-          "shrink-0 w-24 font-display text-base font-extrabold uppercase tracking-[0.14em] max-md:w-full max-md:text-center max-md:text-sm";
         return (
           <div className="shrink-0 border-b-2 border-amber bg-panel-alt px-4 py-2 max-md:px-2 max-md:py-1.5">
             <div className="mx-auto flex max-w-4xl flex-col gap-2">
-              <div className="flex items-center justify-center gap-3 max-md:flex-wrap max-md:gap-2">
-                <span className={`${rotulo} text-soft-blue`}>Unidades</span>
-                <TarjetaMarcador
-                  titulo="Meta diaria"
-                  valor={FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}
-                  acento="azul"
-                />
-                <TarjetaMarcador
-                  titulo="Turno anterior"
-                  subtitulo={fecha}
-                  valor={prod ? FORMATO_NUMERO.format(prod.unidades) : "—"}
-                  acento="ambar"
-                />
-                <TarjetaMarcador
-                  titulo="Cumplimiento"
-                  subtitulo={prod ? `de ${FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}` : "sin dato"}
-                  valor={fmtPct(pctU)}
-                  acento={acentoCumplimiento(pctU)}
-                  colorValor={colorNumeroCumplimiento(pctU)}
-                />
-              </div>
-              <div className="flex items-center justify-center gap-3 max-md:flex-wrap max-md:gap-2">
-                <span className={`${rotulo} text-amber`}>Montajes</span>
-                <TarjetaMarcador
-                  titulo="Meta diaria"
-                  valor={String(META_MONTAJES_DIARIA)}
-                  acento="azul"
-                />
-                <TarjetaMarcador
-                  titulo="Turno anterior"
-                  subtitulo={fecha}
-                  valor={montajes !== null ? String(montajes) : "—"}
-                  acento="ambar"
-                />
-                <TarjetaMarcador
-                  titulo="Cumplimiento"
-                  subtitulo={montajes !== null ? `de ${META_MONTAJES_DIARIA}` : "sin dato"}
-                  valor={fmtPct(pctM)}
-                  acento={acentoCumplimiento(pctM)}
-                  colorValor={colorNumeroCumplimiento(pctM)}
-                />
-              </div>
+              <FilaMarcador
+                rotulo="Unidades"
+                rotuloColor="text-soft-blue"
+                tarjetas={
+                  <>
+                    <TarjetaMarcador
+                      titulo="Meta diaria"
+                      valor={FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}
+                      acento="azul"
+                    />
+                    <TarjetaMarcador
+                      titulo="Turno anterior"
+                      subtitulo={fecha}
+                      valor={prod ? FORMATO_NUMERO.format(prod.unidades) : "—"}
+                      acento="ambar"
+                    />
+                    <TarjetaMarcador
+                      titulo="Cumplimiento"
+                      subtitulo={prod ? `de ${FORMATO_NUMERO.format(OBJETIVO_PRODUCCION_DIARIA)}` : "sin dato"}
+                      valor={fmtPct(pctU)}
+                      acento={acentoCumplimiento(pctU)}
+                      colorValor={colorNumeroCumplimiento(pctU)}
+                    />
+                  </>
+                }
+              />
+              <FilaMarcador
+                rotulo="Montajes"
+                rotuloColor="text-amber"
+                tarjetas={
+                  <>
+                    <TarjetaMarcador
+                      titulo="Meta diaria"
+                      valor={String(META_MONTAJES_DIARIA)}
+                      acento="azul"
+                    />
+                    <TarjetaMarcador
+                      titulo="Turno anterior"
+                      subtitulo={fecha}
+                      valor={montajes !== null ? String(montajes) : "—"}
+                      acento="ambar"
+                    />
+                    <TarjetaMarcador
+                      titulo="Cumplimiento"
+                      subtitulo={montajes !== null ? `de ${META_MONTAJES_DIARIA}` : "sin dato"}
+                      valor={fmtPct(pctM)}
+                      acento={acentoCumplimiento(pctM)}
+                      colorValor={colorNumeroCumplimiento(pctM)}
+                    />
+                  </>
+                }
+              />
             </div>
           </div>
         );
